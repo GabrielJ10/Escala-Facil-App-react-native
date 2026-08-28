@@ -1,0 +1,44 @@
+# Fluxo 6 — Cliente inadimplente.
+#
+# O fluxo que protege a submissao na App Store.
+#
+# requireActiveSubscription cobre /users, /notifications, /shifts, /requests e /absences:
+# o gestor inadimplente derruba o app do FUNCIONARIO, que nao e quem paga e nao tem como
+# resolver.
+#
+# A regra 3.1.3(f) da Apple permite o app gratuito companheiro de uma ferramenta web paga —
+# desde que nao haja compra dentro do app NEM chamada para comprar fora. Um botao
+# "renovar assinatura" nesta tela reprova a submissao.
+#
+# Preparacao: um cliente de teste com billing_status suspenso.
+appId: ${APP_ID:-br.app.escalafacil.dev}
+env:
+  EMAIL: funcionario-inadimplente@exemplo.test
+  SENHA: senha-de-teste
+---
+- launchApp:
+    clearState: true
+- tapOn: "E-mail"
+- inputText: ${EMAIL}
+- tapOn: "Senha"
+- inputText: ${SENHA}
+- tapOn: "Entrar"
+
+# Texto neutro, apontando para quem resolve.
+- assertVisible: "Indisponível no momento"
+- assertVisible:
+    text: ".*gestor.*"
+
+# E NADA que venda. Cada uma destas assercoes corresponde a um motivo de rejeicao.
+- assertNotVisible:
+    text: "(?i).*assinar.*"
+- assertNotVisible:
+    text: "(?i).*assinatura.*"
+- assertNotVisible:
+    text: "(?i).*plano.*"
+- assertNotVisible:
+    text: "(?i).*renovar.*"
+- assertNotVisible:
+    text: "(?i).*pagamento.*"
+- assertNotVisible:
+    text: "(?i).*R\$.*"

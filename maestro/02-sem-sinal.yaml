@@ -1,0 +1,42 @@
+# Fluxo 2 — Sem sinal.
+#
+# A promessa do cache offline, e a recusa clara de escrever.
+#
+# Nao e pego por teste de componente: depende de a rede estar realmente fora, com o cache
+# ja gravado no aparelho da execucao anterior.
+appId: ${APP_ID:-br.app.escalafacil.dev}
+env:
+  EMAIL: funcionario@exemplo.test
+  SENHA: senha-de-teste
+---
+- launchApp:
+    clearState: true
+
+- tapOn: "E-mail"
+- inputText: ${EMAIL}
+- tapOn: "Senha"
+- inputText: ${SENHA}
+- tapOn: "Entrar"
+- assertVisible: "Minha escala"
+
+# Fecha para o cache ser gravado em disco antes de cortar a rede.
+- stopApp
+
+- setAirplaneMode: enabled
+
+- launchApp
+# LEITURA continua funcionando: e isto que o cache persistido promete.
+- assertVisible: "Minha escala"
+
+- tapOn: "Trocas"
+
+# ESCRITA nao. E a recusa precisa ser clara — falhar de forma estranha ensina a pessoa a
+# nao confiar no app.
+- runFlow:
+    when:
+      visible: "Aceitar a troca"
+    commands:
+      - tapOn: "Aceitar a troca"
+      - assertVisible: "Sem conexão"
+
+- setAirplaneMode: disabled

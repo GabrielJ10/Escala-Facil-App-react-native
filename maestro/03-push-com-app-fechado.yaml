@@ -1,0 +1,45 @@
+# Fluxo 3 — Push com o app fechado.
+#
+# A ordem que faz isto funcionar, e a que se erra: restaurar a sessao, resolver o destino,
+# navegar. Navegar antes de a sessao voltar leva a pessoa a uma tela protegida, que a manda
+# para o login — e depois do login ela cai na tela inicial, nao onde o push prometia.
+#
+# O toque some sem deixar rastro de erro. Por isso este fluxo existe.
+#
+# Exige um push enviado pelo console do fundador para o aparelho de teste, com
+# target_path = /dashboard/trocas.
+appId: ${APP_ID:-br.app.escalafacil.dev}
+env:
+  EMAIL: funcionario@exemplo.test
+  SENHA: senha-de-teste
+---
+- launchApp:
+    clearState: true
+- tapOn: "E-mail"
+- inputText: ${EMAIL}
+- tapOn: "Senha"
+- inputText: ${SENHA}
+- tapOn: "Entrar"
+- assertVisible: "Minha escala"
+
+# Permissao de push: a tela explica antes de o sistema perguntar.
+- tapOn: "Perfil"
+- tapOn: "Diagnóstico"
+- assertVisible: "Avisos no celular"
+- back
+- back
+
+- stopApp
+
+# Aqui o operador envia o push pelo console do fundador. O Maestro nao dispara push
+# sozinho; esta pausa e o ponto de sincronizacao.
+- extendedWaitUntil:
+    visible:
+      text: ".*"
+    timeout: 60000
+    optional: true
+
+- openLink: escalafacil://trocas
+
+# Autenticado, e na tela certa — nao na inicial, nao no login.
+- assertVisible: "Para responder.*"

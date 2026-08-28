@@ -1,0 +1,40 @@
+# Fluxo 1 — Entrar, ver a escala, aceitar uma troca.
+#
+# O caminho mais percorrido do produto. Se so um fluxo pudesse rodar antes de cada
+# publicacao, seria este.
+appId: ${APP_ID:-br.app.escalafacil.dev}
+env:
+  EMAIL: funcionario@exemplo.test
+  SENHA: senha-de-teste
+---
+- clearState
+- launchApp
+
+- assertVisible: "E-mail"
+- tapOn: "E-mail"
+- inputText: ${EMAIL}
+- tapOn: "Senha"
+- inputText: ${SENHA}
+- tapOn: "Entrar"
+
+# A escala e a tela inicial de quem entra. Sem cabecalho de voltar, de proposito.
+- assertVisible: "Minha escala"
+
+- tapOn: "Trocas"
+- assertVisible: "Para responder.*"
+
+# Se nao houver troca pendente, a tela diz isso em vez de ficar em branco — e o fluxo
+# precisa aceitar as duas realidades, senao falha por falta de dado e nao por defeito.
+- runFlow:
+    when:
+      visible: "Aceitar a troca"
+    commands:
+      - tapOn: "Aceitar a troca"
+      # Aceitar tira a troca da lista de pendencias.
+      - assertNotVisible: "Aceitar a troca"
+
+- runFlow:
+    when:
+      visible: "Nada esperando você"
+    commands:
+      - assertVisible: "Nada esperando você"

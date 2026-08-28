@@ -1,0 +1,92 @@
+name: Verificar
+
+# CI existe só neste repositório, de propósito: o backend e o site sobem juntos e não têm
+# pipeline. Aqui ela paga por si, porque o app tem uma classe de erro que só aparece no
+# empacotamento — um import que o `tsc` aceita e o Metro não resolve.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  # Um push novo cancela a verificação do anterior: o resultado do commit antigo não
+  # interessa mais, e a fila do runner é compartilhada.
+  group: verificar-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Baixar o aplicativo
+        uses: actions/checkout@v4
+        with:
+          path: app
+
+      # O `check:contract` compara byte a byte com o site. Sem o site aqui, ele FALHA com
+      # instrução em vez de passar em silêncio — que é o comportamento certo, mas
+      # inutilizaria a etapa no CI. Por isso o site vem junto.
+      - name: Baixar o site (para a verificação de contrato)
+        uses: actions/checkout@v4
+        continue-on-error: true
+        id: site
+        with:
+          repository: ${{ github.repository_owner }}/escala-facil-app-site
+          path: site
+          token: ${{ secrets.TOKEN_DO_SITE || github.token }}
+
+      - name: Preparar o Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Instalar
+        working-directory: app
+        run: npm ci
+
+      - name: Typecheck
+        working-directory: app
+        run: npm run typecheck
+
+      - name: Contrato compartilhado
+        if: steps.site.outcome == 'success'
+        working-directory: app
+        env:
+          CONTRACT_SITE_PATH: ${{ github.workspace }}/site
+        run: npm run check:contract
+
+      - name: Avisar quando o contrato não pôde ser verificado
+        if: steps.site.outcome != 'success'
+        run: |
+          echo "::warning::O repositório do site não foi acessível; check:contract foi pulado."
+          echo "Configure o segredo TOKEN_DO_SITE com acesso de leitura ao site."
+
+      - name: Divergências registradas
+        working-directory: app
+        run: npm run check:divergencias
+
+      - name: Documentação dos módulos
+        working-directory: app
+        run: npm run check:docs
+
+      - name: Testes
+        working-directory: app
+        run: npm test
+
+      # A etapa que justifica a CI existir. `tsc` valida tipos; o Metro resolve módulos de
+      # verdade. Foi ela que apanhou o `@formatjs/.../locale-data/pt-BR` inexistente — em
+      # CLDR, `pt` JÁ é o brasileiro, e os sufixados são os outros. O typecheck passava
+      # porque o módulo estava declarado.
+      - name: Empacotar (Android)
+        working-directory: app
+        run: npx expo export --platform android --output-dir /tmp/export-android
+
+      - name: Empacotar (iOS)
+        working-directory: app
+        run: npx expo export --platform ios --output-dir /tmp/export-ios

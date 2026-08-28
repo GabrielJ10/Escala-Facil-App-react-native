@@ -1,0 +1,40 @@
+# Fluxo 4 — Gestor cria turno avulso.
+#
+# E a forma de montar escala pelo celular, e a mesma primitiva do plano MANUAL. O que este
+# fluxo protege alem da criacao: que o turno APARECA na escala depois — ou seja, que a
+# invalidacao de cache pegou o intervalo visivel.
+#
+# Sem essa invalidacao, o gestor cria o turno, volta, nao ve nada, e cria de novo.
+appId: ${APP_ID:-br.app.escalafacil.dev}
+env:
+  EMAIL: gestor@exemplo.test
+  SENHA: senha-de-teste
+  # Nomes do cadastro no ambiente de teste. Trocar com -e LOCAL=... -e MODELO=...
+  LOCAL: "Loja Centro"
+  MODELO: "Manhã"
+---
+- launchApp:
+    clearState: true
+- tapOn: "E-mail"
+- inputText: ${EMAIL}
+- tapOn: "Senha"
+- inputText: ${SENHA}
+- tapOn: "Entrar"
+
+- assertVisible: "Escala da equipe"
+- tapOn: "Escala da equipe"
+
+- tapOn: "Criar turno avulso"
+
+# O dia ja vem preenchido com a semana aberta; local e modelo sao escolha.
+- assertVisible: "Criar turno"
+- tapOn: ${LOCAL}
+- tapOn: "${MODELO}.*"
+
+# A previsao mostra o que vai ser criado antes de criar. E onde o gestor confere o horario.
+- assertVisible: "VAI CRIAR"
+- tapOn: "Criar turno"
+
+# De volta a escala, o turno novo esta la — em aberto, porque nasce sem ninguem.
+- assertVisible: "Escala da equipe"
+- assertVisible: "Em aberto"

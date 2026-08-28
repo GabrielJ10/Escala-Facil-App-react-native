@@ -1,0 +1,27 @@
+# Fluxo 5 — Versao abaixo do minimo.
+#
+# Nao e pego por teste de componente: depende de APP_MINIMUM_VERSION no servidor estar acima
+# da versao do binario instalado.
+#
+# O que este fluxo protege e o par: que a tela bloqueante APAREÇA quando deve, e que o resto
+# do app fique inalcancavel enquanto ela estiver de pe.
+#
+# O caso oposto — o portao falhando ABERTO quando o servidor nao responde — e coberto por
+# versao.test.ts, e e o mais importante dos dois: um portao que tranca porque nao conseguiu
+# perguntar se pode destravar deixaria o app inutil durante qualquer queda da API.
+#
+# Preparacao: definir APP_MINIMUM_VERSION acima da versao instalada, no ambiente de dev.
+appId: ${APP_ID:-br.app.escalafacil.dev}
+---
+- launchApp:
+    clearState: true
+
+- assertVisible: "Atualize o aplicativo"
+
+# O bloqueio e real: nao ha caminho para dentro do app.
+- assertNotVisible: "Entrar"
+- assertNotVisible: "Minha escala"
+
+# No Android, o botao voltar do sistema tambem nao deve escapar.
+- back
+- assertVisible: "Atualize o aplicativo"
