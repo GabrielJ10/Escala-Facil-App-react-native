@@ -9,6 +9,7 @@
  * deviam ser: arranjo visual do que estas funções decidiram.
  */
 import type { ErroApi } from './api';
+import { toDateKeyInTimezone } from '@/contract/dateInTimezone';
 
 // ── Erros ───────────────────────────────────────────────────────────────────
 
@@ -201,23 +202,36 @@ export function contarNaoLidas(itens: Array<{ status?: string | null; read_at?: 
 export type DiaDeTurnos<T> = { dia: string; turnos: T[] };
 
 /**
- * Agrupa turnos por dia, preservando a ordem cronológica.
+ * Agrupa turnos por dia, no fuso da ORGANIZAÇÃO.
  *
- * A chave é a data ISO do próprio `start_timestamp`, cortada no T. Não usar `getDate()`:
- * isso converteria para o fuso do aparelho, e um turno que começa 21h em São Paulo cairia no
- * dia seguinte para quem estivesse com o celular em outro fuso.
+ * O fuso não é detalhe: `start_timestamp` chega em UTC, e cortar a string no `T` dá o dia
+ * UTC. Um turno que começa 22h em Brasília é `01:00Z` do dia seguinte — e apareceria no dia
+ * errado da escala, sem erro nenhum na tela. É exatamente o defeito que `dateInTimezone.ts`
+ * foi escrito para corrigir na grade do site; reimplementar o agrupamento aqui repetiria o
+ * mesmo erro em outro lugar.
+ *
+ * Por isso o dia sai de `toDateKeyInTimezone`, do contrato compartilhado: os dois clientes
+ * agrupam pela mesma regra, e a regra tem teste no contrato.
+ *
+ * O fuso vem de `organization.settings` via `resolveTenantTimezone`, com Brasília de reserva.
  */
 export function agruparTurnosPorDia<T extends { start_timestamp: string }>(
   turnos: T[],
+  fusoDaOrganizacao: string,
 ): Array<DiaDeTurnos<T>> {
   const porDia = new Map<string, T[]>();
 
   for (const turno of turnos || []) {
-    const dia = String(turno?.start_timestamp || '').slice(0, 10);
+    const dia = toDateKeyInTimezone(turno?.start_timestamp, fusoDaOrganizacao);
     if (!dia) continue;
     const lista = porDia.get(dia);
     if (lista) lista.push(turno);
     else porDia.set(dia, [turno]);
+  }
+
+  // Cada dia sai em ordem cronológica; empate desempata pelo id, como o backend faz.
+  for (const lista of porDia.values()) {
+    lista.sort((a, b) => (a.start_timestamp < b.start_timestamp ? -1 : 1));
   }
 
   return [...porDia.entries()]

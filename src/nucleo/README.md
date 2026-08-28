@@ -14,6 +14,7 @@ rede cai, e qual texto a pessoa lê quando algo dá errado.
 | `sessao.tsx` | Quem está logado, com quais capacidades, e a restauração na abertura |
 | `consultas.ts` | Rotas, chaves de cache e as opções de cada mutação |
 | `apresentacao.ts` | As decisões de tela, em funções puras: textos de erro, rótulos, validações |
+| `escala.ts` | A aritmética da escala do gestor: semanas, intervalos, instantes no fuso |
 | `versao.ts` | Comparação de versão e o veredicto do portão |
 | `push.ts` | Permissão, canal do Android, token do Expo e registro do aparelho |
 | `ganchos-de-push.ts` | Abrir na tela certa quando alguém toca numa notificação |
@@ -87,6 +88,11 @@ continuar quebrando quando quebrados:
 | o desfazimento otimista em `opcoesMarcarLida` | `consultas.test.ts` |
 | a rota `trocasParaMim` (apontando para `/requests/inbox`) | `consultas.test.ts` |
 | a comparação numérica em `compararVersoes` | `versao.test.ts` |
+| o fuso em `instanteNaOrganizacao` (usando o do aparelho) | `escala.test.ts` |
+| o teto de 31 dias em `limitarIntervalo` | `escala.test.ts` |
+| o tratamento do domingo em `semanaDe` | `escala.test.ts` |
+| a invalidação em massa da escala (`chaves.escalaToda`) | `consultas.test.ts` |
+| o dia no fuso da organização em `agruparTurnosPorDia` | `apresentacao.test.ts` |
 | a invalidação do painel ao responder troca | `consultas.test.ts` |
 | o "falha aberto" de `avaliarVersao` | `versao.test.ts` |
 | o texto neutro do 402 (citando preço ou plano) | `apresentacao.test.ts` |

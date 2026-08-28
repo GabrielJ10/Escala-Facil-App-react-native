@@ -22,7 +22,7 @@ Depois deste build, as telas e a lógica desta versão saem por `eas update` nor
 
 ### Divergências introduzidas
 
-Seis entradas novas em [`docs/divergencias-app-web.md`](docs/divergencias-app-web.md):
+Dez entradas novas em [`docs/divergencias-app-web.md`](docs/divergencias-app-web.md):
 
 | Onde | Diferença |
 |---|---|
@@ -32,6 +32,10 @@ Seis entradas novas em [`docs/divergencias-app-web.md`](docs/divergencias-app-we
 | `app/solicitacoes.tsx` | Leitura sem aprovação — aprovar exige o `preview_hash` |
 | `app/perfil.tsx` | `Alert.alert` no lugar do `window.confirm` |
 | `app/avisos.tsx` | Não existe no site: no navegador não há permissão de push a queimar |
+| `app/diagnostico.tsx` | Identificador do pacote por plataforma; sem token inteiro |
+| `app/escala.tsx` | Lista por dia com vagas na frente, no lugar da grade de 2.690 linhas |
+| `app/turno/[id].tsx` | Alocar escolhendo da lista, no lugar de arrastar |
+| `app/turno-avulso.tsx` | Teclado por plataforma; horário vem do modelo, não digitado |
 
 ### Adicionado
 
@@ -53,8 +57,17 @@ Seis entradas novas em [`docs/divergencias-app-web.md`](docs/divergencias-app-we
   aparelho e abertura na tela certa (a frio e em segundo plano).
 - **`scripts/check-docs.mjs`** — exige `README.md` com quatro seções preenchidas em cada
   módulo. Entrou no `npm run verificar`.
-- **78 testes novos** (235 no total), com nove mutações verificadas: cada teste foi conferido
-  quebrando de propósito o que ele diz cobrir.
+- **Telas do gestor** — `escala` (a semana dia a dia, com filtro de vagas), `turno/[id]`
+  (alocar e desalocar) e `turno-avulso` (criar turno pontual, a mesma primitiva do plano
+  MANUAL).
+- **`src/nucleo/escala.ts`** — a aritmética da escala em funções puras: semanas de segunda a
+  domingo, o teto de 31 dias do backend, e `instanteNaOrganizacao`, que constrói o horário no
+  fuso da organização em vez do fuso do aparelho.
+- **`lerUltimoErro`** em `api.ts` — a última rota, status e horário de falha, para o
+  diagnóstico. Nunca o corpo da resposta: ela pode carregar dado de terceiros, e a tela existe
+  para ser colada numa conversa de suporte.
+- **120 testes novos** (277 no total), com quinze mutações verificadas: cada teste foi
+  conferido quebrando de propósito o que ele diz cobrir.
 
 ### Corrigido
 
@@ -68,6 +81,11 @@ Seis entradas novas em [`docs/divergencias-app-web.md`](docs/divergencias-app-we
 - **O registro de clique em notificação era tratado como telemetria pura**, mas `clickSchema`
   tem `mark_as_read` com padrão `true`: o servidor marca como lida no mesmo POST. Sem
   invalidar, o app mostrava negrito no que o servidor já lera.
+- **`agruparTurnosPorDia` agrupava pelo dia UTC**, cortando a string ISO no `T`. Um turno que
+  começa 22h em Brasília chega como `01:00Z` do dia seguinte e apareceria na data errada, sem
+  erro nenhum na tela. É o mesmo defeito que `dateInTimezone.ts` corrigiu na grade do site;
+  o agrupamento agora usa `toDateKeyInTimezone` com o fuso da organização, e o teste cobre a
+  virada.
 
 ### Alterado
 

@@ -8,6 +8,7 @@ import { usePortaoDeVersao } from '@/nucleo/consultas';
 import { VERSAO_APP } from '@/nucleo/ambiente';
 import { registrarAparelho, situacaoDaPermissao } from '@/nucleo/push';
 import { Carregando, Erro } from '@/componentes/Estados';
+import { usePodeVer } from '@/nucleo/sessao';
 import { CartaoTurno } from '@/componentes/CartaoTurno';
 import { cores, espacamento, raio, tipografia, TOQUE_MINIMO } from '@/nucleo/tema';
 import { formatarData, formatarHora, formatarDiaDaSemana } from '@/contract/format';
@@ -59,6 +60,8 @@ export default function MinhaEscala() {
         </>
       ) : null}
 
+      <AtalhosDoGestor />
+
       <View style={estilos.atalhos}>
         <Atalho rotulo="Trocas" destino="/trocas" />
         <Atalho rotulo="Afastamentos" destino="/afastamentos" />
@@ -66,6 +69,30 @@ export default function MinhaEscala() {
         <Atalho rotulo="Perfil" destino="/perfil" />
       </View>
     </ScrollView>
+  );
+}
+
+/**
+ * O que só quem monta escala vê.
+ *
+ * A decisão sai de `usePodeVer`, que lê as capacidades do backend — nunca de papel ou plano
+ * conferido na tela. Papel e plano mudam de significado com o tempo; a capacidade é a
+ * resposta do servidor à pergunta que estamos fazendo.
+ */
+function AtalhosDoGestor() {
+  const podeVerEscala = usePodeVer('module_schedule');
+  const podeAprovar = usePodeVer('module_shift_requests_admin');
+
+  if (!podeVerEscala && !podeAprovar) return null;
+
+  return (
+    <>
+      <Text style={estilos.secao}>Equipe</Text>
+      <View style={estilos.atalhos}>
+        {podeVerEscala ? <Atalho rotulo="Escala da equipe" destino="/escala" /> : null}
+        {podeAprovar ? <Atalho rotulo="Solicitações" destino="/solicitacoes" /> : null}
+      </View>
+    </>
   );
 }
 
@@ -136,7 +163,7 @@ function SemTurnos() {
 
 function Atalho({ rotulo, destino, contador = 0 }: Readonly<{
   rotulo: string;
-  destino: '/trocas' | '/afastamentos' | '/notificacoes' | '/perfil';
+  destino: '/trocas' | '/afastamentos' | '/notificacoes' | '/perfil' | '/escala' | '/solicitacoes';
   contador?: number;
 }>) {
   return (

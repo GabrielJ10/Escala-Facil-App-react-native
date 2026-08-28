@@ -13,7 +13,15 @@ import { armazenamentoSeguro } from './armazenamento';
  * autorização só para tomar 401 e renovar, custando uma ida e volta em toda abertura.
  */
 type Membro = { id: string; name?: string; role: string; permissions?: Record<string, boolean> } | null;
-type Organizacao = { id: string; name: string; plan?: string; billing_status?: string } | null;
+type Organizacao = {
+  id: string;
+  name: string;
+  plan?: string;
+  billing_status?: string;
+  // Whitelist do backend (pickPublicTenantSettings). O fuso da escala mora aqui, e é o que
+  // decide em que dia um turno da noite aparece.
+  settings?: { timezone?: unknown } | null;
+} | null;
 type Usuario = { id: string; email: string } | null;
 
 type EstadoSessao = {

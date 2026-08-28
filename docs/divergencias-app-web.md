@@ -227,3 +227,65 @@ status e o horário; o conteúdo pode carregar nome, e-mail e escala de terceiro
 
 **Descartado:** mostrar o token de push completo. Ele identifica o aparelho e permite enviar
 notificação para ele; num print compartilhado em grupo, isso é mais do que suporte precisa.
+
+## Escala do gestor — lista por dia, não grade
+
+**Onde:** `app/escala.tsx`
+**Site faz:** `ShiftMatrix.tsx`, 2.690 linhas: uma grade local × dia com oito colunas, 1080px
+de largura mínima, arrastar e soltar para alocar.
+**App faz:** uma semana, dia a dia, com as vagas destacadas e um filtro "só vagas".
+**Por quê:** num aparelho de 390px caberiam três colunas da grade, e o gestor passaria a
+sessão rolando de lado. Mas a razão de fundo não é largura: **a pergunta é outra.** No
+computador, o gestor está montando a escala inteira e precisa ver o conjunto. No celular ele
+está resolvendo um buraco — "quem cobre sábado?" — e a resposta tem que caber numa tela.
+
+Daí três decisões que a grade não tem: o cabeçalho de cada dia traz a contagem de vagas, o
+filtro "só vagas" existe, e a semana é a unidade de navegação (o mês estouraria o teto de 31
+dias de `listQuerySchema`).
+
+**Descartado:** a grade com rolagem horizontal. É o caminho óbvio e foi por onde a discussão
+começou; o problema é que ela transfere o custo para o usuário sem resolver nada — continua
+sendo a mesma densidade de informação, agora atrás de um gesto.
+
+## Alocar alguém — escolher da lista, não arrastar
+
+**Onde:** `app/turno/[id].tsx`
+**Site faz:** arrastar o nome da pessoa para a célula da grade.
+**App faz:** abrir o turno e escolher da lista, com busca por nome.
+**Por quê:** arrastar exige ver origem e destino ao mesmo tempo, e num celular isso não
+existe. A operação é a mesma (`PATCH /shifts/:id/assign`); muda como se chega até ela.
+
+Duas coisas que a tela herda do site de propósito: a ordenação usa `ordenarNomes` do contrato
+(um `sort()` cru colocaria "Ávila" depois de "Zanetti"), e desalocar pede confirmação, porque
+o turno volta a ser vaga sem avisar ninguém.
+
+O turno vem do cache da semana, não de uma rota própria — `GET /shifts/:id` não existe no
+backend.
+
+**Descartado:** trazer o arrastar para o app já nesta fase. O plano tem um portão para isso
+(Portão A), que exige um Android real de entrada e ainda não foi respondido. Construir a tela
+de gesto antes da medição seria apostar o cronograma numa suposição.
+
+## Criar turno avulso — teclado, e o horário vem do modelo
+
+**Onde:** `app/turno-avulso.tsx`
+**Site faz:** o gestor cria turnos aplicando regras de cobertura, ou pontualmente pela grade.
+**App faz:** escolhe dia, local e modelo. O horário sai do modelo (`start_time` e
+`duration_minutes`), e a tela mostra o que vai ser criado antes de criar.
+**Por quê:** duas razões separadas.
+
+Sobre o **teclado**, ramifica por plataforma pelo mesmo motivo de `app/entrar.tsx`: o Android
+já empurra a tela sozinho (`adjustResize`), o iOS não. Aplicar `padding` nos dois faz o
+Android empurrar duas vezes.
+
+Sobre o **horário**, deixar o gestor digitar hora e duração livres criaria turnos que não
+batem com modelo nenhum — e a escala inteira do produto é montada sobre modelos. Escolher o
+modelo É escolher o horário.
+
+O instante é construído com `instanteNaOrganizacao`, no fuso da organização. O caminho
+ingênuo (`new Date('2026-09-01T08:00')`) usaria o fuso do APARELHO: um gestor viajando criaria
+turnos horas fora do que viu na tela, e a diferença só apareceria para quem fosse trabalhar.
+
+**Descartado:** seletor de data e hora nativo. É melhor de usar, e é a próxima melhoria; para
+esta versão significaria mais uma dependência com comportamento diferente nas duas
+plataformas, enquanto a validação por texto já existe e tem teste.

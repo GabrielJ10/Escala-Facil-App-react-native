@@ -99,6 +99,9 @@ function Navegacao() {
       <Stack.Screen name="afastamentos" options={{ title: 'Afastamentos' }} />
       <Stack.Screen name="notificacoes" options={{ title: 'Avisos' }} />
       <Stack.Screen name="solicitacoes" options={{ title: 'Solicitações' }} />
+      <Stack.Screen name="escala" options={{ title: 'Escala da equipe' }} />
+      <Stack.Screen name="turno-avulso" options={{ title: 'Novo turno' }} />
+      <Stack.Screen name="turno/[id]" options={{ title: 'Turno' }} />
       <Stack.Screen name="perfil" options={{ title: 'Perfil' }} />
       <Stack.Screen name="avisos" options={{ title: 'Avisos no celular' }} />
       <Stack.Screen name="indisponivel" options={{ title: 'Acesso suspenso' }} />

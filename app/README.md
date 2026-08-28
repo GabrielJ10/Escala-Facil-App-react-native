@@ -18,6 +18,9 @@ navegação, nessa ordem.
 | `perfil` | todos | Dados da conta, versão, diagnóstico e sair |
 | `avisos` | todos | Explica o push **antes** de pedir a permissão do sistema |
 | `solicitacoes` | gestor | O que está parado esperando decisão (leitura) |
+| `escala` | gestor | A semana da equipe, dia a dia, com as vagas na frente |
+| `turno/[id]` | gestor | Um turno: alocar da lista, ou tirar da escala |
+| `turno-avulso` | gestor | Criar turno pontual — a forma de montar escala pelo celular |
 | `indisponivel` | todos | A tela neutra de acesso suspenso. Sem preço, sem oferta |
 | `diagnostico` | suporte | Ambiente, versão, token de push, último erro |
 
@@ -44,6 +47,12 @@ O que cada tela consome:
 - `afastamentos` → `/absences/requests/mine?status=…`, uma chamada por filtro.
 - `notificacoes` → `/notifications?status=ALL` e `/notifications/summary`.
 - `solicitacoes` → `/requests/inbox` e `/absences/requests`, ambas só com a capacidade certa.
+- `escala` → `/shifts?start_date=…&end_date=…`, com o intervalo já cortado em 31 dias por
+  `limitarIntervalo`: o backend recusa acima disso com 400, não com uma lista cortada.
+- `turno/[id]` → o cache da semana (`GET /shifts/:id` não existe no backend), mais `/users`
+  para a lista de quem pode ser alocado.
+- `turno-avulso` → `/locations` e `/shift-models`, ambos com `staleTime` de uma hora: são
+  cadastro, não movimento, e recarregá-los a cada toque custaria em toda sessão.
 
 Leitura funciona sem rede, servida pelo cache persistido. **Escrita não** — e a recusa é
 explícita, porque falhar de forma estranha ensina a pessoa a não confiar no app.

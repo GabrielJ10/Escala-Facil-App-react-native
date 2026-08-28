@@ -23,6 +23,9 @@ const {
   chaves,
   rotas,
   politicaDeRetentativa,
+  opcoesAlocarMembro,
+  opcoesCriarTurnoAvulso,
+  opcoesDesalocarMembro,
   opcoesMarcarLida,
   opcoesMarcarTodasLidas,
   opcoesPedirAfastamento,
@@ -329,6 +332,101 @@ describe('pedir afastamento', () => {
   });
 });
 
+describe('escala do gestor', () => {
+  const espiarInvalidacoes = (cliente: QueryClient) => {
+    const invalidadas: unknown[] = [];
+    vi.spyOn(cliente, 'invalidateQueries').mockImplementation((filtro) => {
+      invalidadas.push((filtro as { queryKey: unknown }).queryKey);
+      return Promise.resolve();
+    });
+    return invalidadas;
+  };
+
+  it('a rota da escala manda as duas datas que o backend exige', () => {
+    expect(rotas.escala('2026-09-01', '2026-09-07'))
+      .toBe('/shifts?start_date=2026-09-01&end_date=2026-09-07');
+  });
+
+  it('alocar e desalocar batem nos caminhos do backend', () => {
+    expect(rotas.alocarMembro('t1')).toBe('/shifts/t1/assign');
+    expect(rotas.desalocarMembro('t1')).toBe('/shifts/t1/remove');
+  });
+
+  it('os cadastros usam os caminhos montados no app.js', () => {
+    // `/shift-models` com hífen, não `/shift_models` como o nome da pasta sugere.
+    expect(rotas.modelosDeTurno).toBe('/shift-models');
+    expect(rotas.locais).toBe('/locations');
+  });
+
+  /**
+   * Invalidar só o intervalo visível parece economia e não é.
+   *
+   * O gestor navega entre semanas, e a semana seguinte também está em cache. Criar um turno
+   * na terça altera a semana daquela terça — que pode ser a que ele abriu antes e vai abrir
+   * de novo. O prefixo `['escala']` pega todos os intervalos de uma vez.
+   */
+  it('mexer na escala invalida TODOS os intervalos, não só o visível', async () => {
+    const cliente = novoCliente();
+    apiFetch.mockResolvedValue({ success: true });
+    const invalidadas = espiarInvalidacoes(cliente);
+
+    await mutar(cliente, opcoesCriarTurnoAvulso(cliente), {
+      location_id: 'l1',
+      shift_model_id: 'm1',
+      start_timestamp: '2026-09-01T11:00:00.000Z',
+      end_timestamp: '2026-09-01T19:00:00.000Z',
+    });
+
+    expect(invalidadas).toContainEqual(chaves.escalaToda);
+    expect(invalidadas).not.toContainEqual(chaves.escala('2026-09-01', '2026-09-07'));
+  });
+
+  it('alocar também mexe no painel de quem foi alocado', async () => {
+    const cliente = novoCliente();
+    apiFetch.mockResolvedValue({ success: true });
+    const invalidadas = espiarInvalidacoes(cliente);
+
+    await mutar(cliente, opcoesAlocarMembro(cliente), { turnoId: 't1', membroId: 'm1' });
+
+    expect(invalidadas).toContainEqual(chaves.escalaToda);
+    // Quem foi alocado passa a ter um turno: o painel dele mudou.
+    expect(invalidadas).toContainEqual(chaves.painel);
+  });
+
+  it('alocar manda member_id no corpo, por PATCH', async () => {
+    const cliente = novoCliente();
+    apiFetch.mockResolvedValue({ success: true });
+
+    await mutar(cliente, opcoesAlocarMembro(cliente), { turnoId: 't1', membroId: 'm1' });
+
+    expect(apiFetch).toHaveBeenCalledWith('/shifts/t1/assign', expect.objectContaining({
+      method: 'PATCH',
+      body: JSON.stringify({ member_id: 'm1' }),
+    }));
+  });
+
+  it('desalocar não manda corpo — removeMemberSchema só aceita o id na rota', async () => {
+    const cliente = novoCliente();
+    apiFetch.mockResolvedValue({ success: true });
+
+    await mutar(cliente, opcoesDesalocarMembro(cliente), 't1');
+
+    const [rota, opcoes] = apiFetch.mock.calls[0];
+    expect(rota).toBe('/shifts/t1/remove');
+    expect((opcoes as { body?: unknown }).body).toBeUndefined();
+  });
+
+  it('falha ao alocar não invalida nada — a escala na tela continua correta', async () => {
+    const cliente = novoCliente();
+    apiFetch.mockRejectedValue(Object.assign(new Error('sobreposto'), { status: 409 }));
+    const invalidar = vi.spyOn(cliente, 'invalidateQueries');
+
+    await mutar(cliente, opcoesAlocarMembro(cliente), { turnoId: 't1', membroId: 'm1' });
+
+    expect(invalidar).not.toHaveBeenCalled();
+  });
+});
+
 describe('chaves de cache', () => {
   it('as duas listas de troca não compartilham chave', () => {
     // Se compartilhassem, responder uma troca limparia a lista errada — e a tela mostraria
@@ -344,5 +442,14 @@ describe('chaves de cache', () => {
 
   it('cada mês da escala tem a sua', () => {
     expect(chaves.turnosDoMes('2026-09')).not.toEqual(chaves.turnosDoMes('2026-10'));
+  });
+
+  it('o prefixo da escala cobre qualquer intervalo', () => {
+    // É o que faz `invalidateQueries({ queryKey: chaves.escalaToda })` alcançar as semanas
+    // que o gestor já visitou. Se a chave deixar de começar por ele, a invalidação em massa
+    // para de funcionar — e nada indica isso na tela.
+    for (const chave of [chaves.escala('2026-09-01', '2026-09-07'), chaves.escala('a', 'b')]) {
+      expect(chave.slice(0, chaves.escalaToda.length)).toEqual([...chaves.escalaToda]);
+    }
   });
 });

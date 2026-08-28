@@ -8,6 +8,9 @@ import {
 
 import { apiFetch, type ErroApi } from './api';
 import type { PortaoDeVersao } from './versao';
+import type { TurnoDaEscala } from './escala';
+
+export type { TurnoDaEscala };
 
 /**
  * As consultas do aplicativo, num lugar só.
@@ -57,6 +60,20 @@ export const rotas = {
   trocasParaAprovar: '/requests/inbox?state=OPEN',
   afastamentosParaAprovar: '/absences/requests?status=PENDING_ADMIN_APPROVAL',
 
+  /**
+   * `listQuerySchema` recusa acima de 31 dias, e as datas são obrigatórias. Quem chama passa
+   * pelo `limitarIntervalo` de `escala.ts` antes — pedir 60 dias devolve 400, não uma lista
+   * cortada.
+   */
+  escala: (inicio: string, fim: string) => `/shifts?start_date=${inicio}&end_date=${fim}`,
+  criarTurnoAvulso: '/shifts',
+  alocarMembro: (id: string) => `/shifts/${id}/assign`,
+  desalocarMembro: (id: string) => `/shifts/${id}/remove`,
+
+  locais: '/locations',
+  modelosDeTurno: '/shift-models',
+  membros: '/users?limit=200',
+
   notificacoes: '/notifications?status=ALL',
   resumoNotificacoes: '/notifications/summary',
   marcarLida: (id: string) => `/notifications/${id}/read`,
@@ -77,6 +94,14 @@ export const chaves = {
 
   trocasParaAprovar: ['gestor', 'trocas'] as const,
   afastamentosParaAprovar: ['gestor', 'afastamentos'] as const,
+
+  escala: (inicio: string, fim: string) => ['escala', inicio, fim] as const,
+  /** Prefixo para invalidar TODOS os intervalos de uma vez, depois de mexer na escala. */
+  escalaToda: ['escala'] as const,
+
+  locais: ['cadastros', 'locais'] as const,
+  modelosDeTurno: ['cadastros', 'modelos'] as const,
+  membros: ['cadastros', 'membros'] as const,
 
   notificacoes: ['notificacoes', 'lista'] as const,
   resumoNotificacoes: ['notificacoes', 'resumo'] as const,
@@ -332,6 +357,147 @@ export function useAfastamentosParaAprovar(habilitado = true) {
     enabled: habilitado,
     ...PADRAO,
   });
+}
+
+// ── Escala do gestor ────────────────────────────────────────────────────────
+
+export type Local = { id: string; name: string; is_active?: boolean };
+
+export type ModeloDeTurno = {
+  id: string;
+  name: string;
+  start_time: string | null;
+  duration_minutes: number | null;
+  is_active?: boolean;
+  is_ended?: boolean;
+};
+
+export type Membro = { id: string; name: string; role?: string; status?: string };
+
+/**
+ * A escala de um período.
+ *
+ * O intervalo já deve vir limitado por `limitarIntervalo` — o backend recusa acima de 31
+ * dias, e a recusa é 400, não uma lista cortada.
+ */
+export function useEscala(intervalo: { inicio: string; fim: string }, habilitado = true) {
+  return useQuery({
+    queryKey: chaves.escala(intervalo.inicio, intervalo.fim),
+    queryFn: () => apiFetch<Envelope<TurnoDaEscala[]>>(
+      rotas.escala(intervalo.inicio, intervalo.fim),
+    ).then((r) => r.data),
+    enabled: habilitado && Boolean(intervalo.inicio && intervalo.fim),
+    ...PADRAO,
+  });
+}
+
+/**
+ * Locais, modelos e membros mudam raramente — são cadastro, não movimento.
+ *
+ * `staleTime` de uma hora evita três requisições a cada abertura do formulário de turno
+ * avulso. O gestor que acabou de criar um local e não o vê na lista pode puxar para
+ * atualizar; o contrário — recarregar cadastro a cada toque — custaria em toda sessão.
+ */
+const CADASTRO = { ...PADRAO, staleTime: 60 * 60 * 1000 };
+
+export function useLocais(habilitado = true) {
+  return useQuery({
+    queryKey: chaves.locais,
+    queryFn: () => apiFetch<Envelope<Local[]>>(rotas.locais).then((r) => r.data),
+    enabled: habilitado,
+    ...CADASTRO,
+  });
+}
+
+export function useModelosDeTurno(habilitado = true) {
+  return useQuery({
+    queryKey: chaves.modelosDeTurno,
+    queryFn: () => apiFetch<Envelope<ModeloDeTurno[]>>(rotas.modelosDeTurno).then((r) => r.data),
+    enabled: habilitado,
+    ...CADASTRO,
+  });
+}
+
+export function useMembros(habilitado = true) {
+  return useQuery({
+    queryKey: chaves.membros,
+    queryFn: () => apiFetch<Envelope<Membro[]>>(rotas.membros).then((r) => r.data),
+    enabled: habilitado,
+    ...CADASTRO,
+  });
+}
+
+/**
+ * Depois de mexer na escala, TODOS os intervalos em cache ficam suspeitos.
+ *
+ * Invalidar só o intervalo visível parece economia e não é: o gestor navega entre semanas, e
+ * a semana que ele vai abrir a seguir também mudou — criar um turno na terça altera a semana
+ * daquela terça, que pode estar em cache com o formato antigo. O prefixo `['escala']` pega
+ * todos de uma vez.
+ *
+ * O painel do funcionário também entra: quem foi alocado passa a ter um turno.
+ */
+function invalidarEscala(cliente: QueryClient) {
+  cliente.invalidateQueries({ queryKey: chaves.escalaToda });
+  cliente.invalidateQueries({ queryKey: chaves.painel });
+}
+
+export type NovoTurnoAvulso = {
+  location_id: string;
+  shift_model_id: string;
+  start_timestamp: string;
+  end_timestamp: string;
+  member_id?: string;
+};
+
+export function opcoesCriarTurnoAvulso(
+  cliente: QueryClient,
+): UseMutationOptions<unknown, ErroApi, NovoTurnoAvulso> {
+  return {
+    mutationFn: (corpo) => apiFetch(rotas.criarTurnoAvulso, {
+      method: 'POST',
+      body: JSON.stringify(corpo),
+    }),
+    onSuccess: () => invalidarEscala(cliente),
+  };
+}
+
+export function useCriarTurnoAvulso() {
+  const cliente = useQueryClient();
+  return useMutation(opcoesCriarTurnoAvulso(cliente));
+}
+
+export type Alocacao = { turnoId: string; membroId: string };
+
+export function opcoesAlocarMembro(
+  cliente: QueryClient,
+): UseMutationOptions<unknown, ErroApi, Alocacao> {
+  return {
+    mutationFn: ({ turnoId, membroId }) => apiFetch(rotas.alocarMembro(turnoId), {
+      method: 'PATCH',
+      body: JSON.stringify({ member_id: membroId }),
+    }),
+    onSuccess: () => invalidarEscala(cliente),
+  };
+}
+
+export function useAlocarMembro() {
+  const cliente = useQueryClient();
+  return useMutation(opcoesAlocarMembro(cliente));
+}
+
+export function opcoesDesalocarMembro(
+  cliente: QueryClient,
+): UseMutationOptions<unknown, ErroApi, string> {
+  return {
+    mutationFn: (turnoId) => apiFetch(rotas.desalocarMembro(turnoId), { method: 'PATCH' }),
+    onSuccess: () => invalidarEscala(cliente),
+  };
+}
+
+export function useDesalocarMembro() {
+  const cliente = useQueryClient();
+  return useMutation(opcoesDesalocarMembro(cliente));
 }
 
 // ── Notificações ────────────────────────────────────────────────────────────

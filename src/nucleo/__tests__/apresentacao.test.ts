@@ -246,40 +246,61 @@ describe('notificações não lidas', () => {
 });
 
 describe('agruparTurnosPorDia', () => {
-  it('agrupa e ordena por dia', () => {
+  const SP = 'America/Sao_Paulo';
+
+  it('agrupa e ordena por dia, e cada dia sai em ordem cronológica', () => {
     const grupos = agruparTurnosPorDia([
-      { id: 'b', start_timestamp: '2026-09-02T08:00:00Z' },
-      { id: 'a', start_timestamp: '2026-09-01T08:00:00Z' },
-      { id: 'c', start_timestamp: '2026-09-01T14:00:00Z' },
-    ]);
+      { id: 'b', start_timestamp: '2026-09-02T11:00:00Z' },
+      { id: 'c', start_timestamp: '2026-09-01T17:00:00Z' },
+      { id: 'a', start_timestamp: '2026-09-01T11:00:00Z' },
+    ], SP);
 
     expect(grupos.map((g) => g.dia)).toEqual(['2026-09-01', '2026-09-02']);
     expect(grupos[0].turnos.map((t) => t.id)).toEqual(['a', 'c']);
   });
 
   /**
-   * O turno da noite é onde agrupamento por data erra.
+   * O turno da noite, que é onde agrupar por data erra.
    *
-   * Se alguém trocar o corte do ISO por `new Date(...).getDate()`, um turno que começa às
-   * 23h UTC cai no dia seguinte para quem está em UTC+2 — e a escala mostra o turno no dia
-   * errado, sem erro nenhum na tela.
+   * Um turno que começa 22h em Brasília chega como `01:00Z` do dia SEGUINTE. Cortar a string
+   * ISO no `T` — que é o atalho óbvio — o colocaria em 02/09, e a escala mostraria o turno no
+   * dia errado sem erro nenhum na tela.
+   *
+   * É o mesmo defeito que `dateInTimezone.ts` corrigiu na grade do site. Este teste existe
+   * para ele não voltar por outro caminho.
    */
-  it('não desloca o turno da noite por fuso do aparelho', () => {
+  it('turno da noite fica no dia do FUSO DA ORGANIZAÇÃO, não no dia UTC', () => {
     const grupos = agruparTurnosPorDia([
-      { id: 'noite', start_timestamp: '2026-09-01T23:30:00Z' },
-    ]);
+      { id: 'noite', start_timestamp: '2026-09-02T01:00:00Z' },
+    ], SP);
+
+    expect(grupos[0].dia).toBe('2026-09-01');
+  });
+
+  it('o mesmo instante cai em dias diferentes conforme o fuso da organização', () => {
+    const instante = [{ id: 'x', start_timestamp: '2026-09-02T01:00:00Z' }];
+
+    expect(agruparTurnosPorDia(instante, 'America/Sao_Paulo')[0].dia).toBe('2026-09-01');
+    expect(agruparTurnosPorDia(instante, 'Europe/Lisbon')[0].dia).toBe('2026-09-02');
+  });
+
+  it('fuso inválido cai em Brasília em vez de quebrar', () => {
+    const grupos = agruparTurnosPorDia(
+      [{ id: 'x', start_timestamp: '2026-09-02T01:00:00Z' }],
+      'Fuso/Inexistente',
+    );
     expect(grupos[0].dia).toBe('2026-09-01');
   });
 
   it('lista vazia devolve lista vazia', () => {
-    expect(agruparTurnosPorDia([])).toEqual([]);
+    expect(agruparTurnosPorDia([], SP)).toEqual([]);
   });
 
   it('turno sem data é descartado em vez de virar grupo vazio', () => {
     const grupos = agruparTurnosPorDia([
-      { id: 'ok', start_timestamp: '2026-09-01T08:00:00Z' },
+      { id: 'ok', start_timestamp: '2026-09-01T11:00:00Z' },
       { id: 'sem-data', start_timestamp: '' },
-    ]);
+    ], SP);
     expect(grupos).toHaveLength(1);
     expect(grupos[0].turnos).toHaveLength(1);
   });
