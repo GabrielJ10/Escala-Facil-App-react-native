@@ -1,0 +1,13 @@
+node_modules/
+.expo/
+dist/
+web-build/
+*.log
+
+# Projetos nativos: gerados por `expo prebuild` a partir do app.config.ts.
+# Customização nativa vive em config plugins, não em edição manual — que se perderia
+# na próxima geração.
+/ios
+/android
+
+.env*.local
