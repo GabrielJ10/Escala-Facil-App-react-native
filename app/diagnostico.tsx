@@ -8,6 +8,7 @@ import { lerAccessToken, lerUltimoErro } from '@/nucleo/api';
 import { situacaoDaPermissao, type SituacaoDaPermissao } from '@/nucleo/push';
 import { useSessao } from '@/nucleo/sessao';
 import { cores, espacamento, raio, tipografia, TOQUE_MINIMO } from '@/nucleo/tema';
+import { observabilidadeAtiva } from '@/nucleo/observabilidade';
 
 /**
  * Diagnóstico — o que transforma "está estranho aqui" em informação.
@@ -66,6 +67,9 @@ export default function Diagnostico() {
     ['Organização', organizacao?.name ?? '—'],
     ['Cobrança', organizacao?.billing_status ?? '—'],
     ['Avisos no celular', permissao ? PERMISSAO[permissao] : 'desconhecida'],
+    // Quem atende o suporte precisa saber se vale procurar o erro no painel: se estiver
+    // desligado, o relato da pessoa é a única fonte que existe.
+    ['Relatório de erro', observabilidadeAtiva() ? 'ativo' : 'desligado'],
     ['Último erro', erro ? `${erro.status} em ${erro.rota} · ${erro.quando}` : 'nenhum'],
   ];
 

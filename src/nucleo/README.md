@@ -22,6 +22,7 @@ rede cai, e qual texto a pessoa lê quando algo dá errado.
 | `push.ts` | Permissão, canal do Android, token do Expo e registro do aparelho |
 | `ganchos-de-push.ts` | Abrir na tela certa quando alguém toca numa notificação |
 | `rotas-do-push.ts` | Traduzir o destino do backend (caminho do site) para uma rota do app |
+| `observabilidade.ts` | Relatório de erro: inerte sem DSN, e sem nada sobre quem usa o app |
 | `intl.ts` | Polyfill de `Intl` — precisa carregar antes de qualquer formatação |
 | `tema.ts` | Os tokens visuais do site, em objeto |
 
@@ -65,6 +66,10 @@ alternativa descartada:
 - **`push.ts`** — não existe equivalente no site. Ramifica por plataforma no canal do Android
   e no `platform` do registro.
 - **`tema.ts`** — os mesmos valores do `:root` do site, em hexadecimal, porque não há CSS aqui.
+- **`observabilidade.ts`** — não existe equivalente no site, que não tem relatório de erro. O
+  que ele manda é deliberadamente pobre: id de membro e nada mais, sem `sendDefaultPii`, com
+  corpo de requisição, cabeçalho, console e toque descartados antes de sair do aparelho —
+  porque num app que carrega escala de funcionário, a migalha "útil" é dado de pessoa.
 
 O `single-flight` de renovação em `api.ts` é **reimplementado**, não herdado: ele mora na
 coluna que diverge, e por isso tem teste próprio. Sem esse teste, ele derivaria sem o

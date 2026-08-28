@@ -14,11 +14,12 @@ Segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ### Exige build nativo?
 
-**Sim.** Três dependências nativas entraram: `expo-notifications` e `expo-device` (permissão
-do sistema, canal de notificação no Android, entitlement de push no iOS) e `expo-calendar`
-(acesso ao calendário, com `NSCalendarsUsageDescription` no iOS e READ/WRITE_CALENDAR no
-Android). Nada disso alcança um aparelho por `eas update` — precisa de `eas build` e passar
-pela loja.
+**Sim.** Quatro dependências nativas entraram: `expo-notifications` e `expo-device`
+(permissão do sistema, canal de notificação no Android, entitlement de push no iOS),
+`expo-calendar` (acesso ao calendário, com `NSCalendarsUsageDescription` no iOS e
+READ/WRITE_CALENDAR no Android) e `@sentry/react-native` (o mapa de fontes é enviado
+**durante o build**, não depois). Nada disso alcança um aparelho por `eas update` — precisa
+de `eas build` e passar pela loja.
 
 Os textos de permissão ficam em `app.config.ts`. No iOS eles são lidos pelo revisor da App
 Store: texto genérico é motivo de rejeição, então cada um diz o que o app faz com a
@@ -46,6 +47,27 @@ Doze entradas novas em [`docs/divergencias-app-web.md`](docs/divergencias-app-we
 | `src/nucleo/calendario-do-sistema.ts` | Fonte do calendário por plataforma; `expo-calendar` no lugar de módulo próprio |
 
 ### Adicionado
+
+- **`src/nucleo/observabilidade.ts`** — relatório de erro por Sentry, com duas regras que
+  valem mais que o próprio relatório:
+
+  **Sem DSN, silêncio.** `SENTRY_DSN` chega por variável de ambiente no build. Ausente — o
+  caso normal em desenvolvimento — nada é inicializado e nada é enviado, em vez de falhar
+  pedindo configuração. Erro de quem está editando código não disputa espaço no painel com
+  erro de gente de verdade.
+
+  **Nada sobre a pessoa.** Este app carrega escala, nome, cargo e e-mail de funcionário.
+  `sendDefaultPii` fica desligado, a identificação é o id do membro e mais nada, e as
+  migalhas passam por uma peneira que descarta corpo de requisição, resposta, cabeçalho de
+  autenticação, e — em produção — console e **toque**: `Sentry.wrap` registra o rótulo de
+  acessibilidade do elemento tocado, e aqui esse rótulo costuma ser o nome de alguém.
+
+  O teste que mais importa não é nenhum dos quinze isolados, e sim o que verifica que a
+  peneira está **ligada** no `init`: sem ele, trocar `beforeBreadcrumb` por `undefined`
+  passaria em tudo enquanto o corpo de cada requisição voltava a sair do aparelho.
+
+  A tela de diagnóstico ganhou a linha "Relatório de erro", para quem atende o suporte saber
+  se vale procurar no painel ou se o relato da pessoa é a única fonte que existe.
 
 - **Telas do funcionário** — `trocas`, `afastamentos`, `notificacoes`, `perfil`, e a
   `minha-escala` reescrita sobre a camada compartilhada de consultas.
@@ -132,3 +154,12 @@ Doze entradas novas em [`docs/divergencias-app-web.md`](docs/divergencias-app-we
   `calendario.ts` não sabe que `expo-calendar` existe.
 - O `registrarAparelho` silencioso em `minha-escala` só age com a permissão **já concedida**.
   Nunca dispara o pedido do sistema; isso é da tela `/avisos`.
+- **O Sentry precisa de três variáveis no ambiente do build**, e nenhuma no repositório:
+  `SENTRY_DSN` (a única que atravessa para o aparelho, via `extra`), `SENTRY_ORG` e
+  `SENTRY_PROJECT` para o plugin subir o mapa de fontes, mais `SENTRY_AUTH_TOKEN` como
+  segredo do EAS. Faltando qualquer uma, o build **passa** — só não sobe mapa e o app não
+  reporta. É de propósito: configuração de observabilidade nunca deve ser o que impede uma
+  correção de chegar na loja.
+- **Os quatro orçamentos do plano ainda não foram medidos.** Sessões sem falha e erro de API
+  saem do painel assim que houver DSN e tráfego real; abertura a frio e adoção de versão
+  precisam de aparelho e de loja. Nada disso é verificável nesta máquina.

@@ -77,6 +77,21 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     plugins: [
       'expo-router',
       'expo-secure-store',
+      /**
+       * O plugin do Sentry existe para uma coisa só: subir o mapa de fontes durante o
+       * `eas build`. Sem ele o painel mostra pilha empacotada, que não aponta linha nenhuma.
+       *
+       * `org` e `project` saem do ambiente do build. Ausentes, o plugin não sobe nada e o
+       * build segue — que é o comportamento certo para quem clona o repositório e só quer
+       * rodar o app.
+       */
+      [
+        '@sentry/react-native/expo',
+        {
+          organization: process.env.SENTRY_ORG,
+          project: process.env.SENTRY_PROJECT,
+        },
+      ],
       [
         'expo-calendar',
         {
@@ -98,6 +113,9 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     extra: {
       ambiente: AMBIENTE,
       apiUrl: atual.api,
+      // Só o DSN atravessa para o aparelho — o token de upload do mapa de fontes fica no
+      // ambiente do build e nunca entra no pacote.
+      sentryDsn: process.env.SENTRY_DSN || null,
     },
   };
 };

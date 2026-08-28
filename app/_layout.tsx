@@ -1,6 +1,14 @@
 // O polyfill de Intl precisa carregar antes de qualquer coisa que formate texto.
 import '@/nucleo/intl';
 
+import * as Sentry from '@sentry/react-native';
+
+import { iniciarObservabilidade } from '@/nucleo/observabilidade';
+
+// Antes de qualquer tela montar: um erro na primeira renderização é o que mais interessa
+// capturar, e ele acontece antes de qualquer efeito rodar. Sem DSN, isto não faz nada.
+iniciarObservabilidade();
+
 import { useEffect, useState } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -49,7 +57,7 @@ const persistidor = createAsyncStoragePersister({
 // valer antes da primeira renderização.
 configurarApresentacao();
 
-export default function LayoutRaiz() {
+function LayoutRaiz() {
   const [pronto, setPronto] = useState(false);
 
   useEffect(() => { setPronto(true); }, []);
@@ -114,3 +122,14 @@ function Navegacao() {
     </Stack>
   );
 }
+
+/**
+ * `Sentry.wrap` é o que liga a instrumentação automática do Expo Router: tempo até a primeira
+ * tela, navegação entre rotas e a fronteira que captura um erro de renderização antes de ele
+ * virar tela branca.
+ *
+ * Envolve mesmo sem DSN — aí o SDK não está inicializado e o invólucro só repassa. Manter
+ * incondicional evita a diferença clássica entre o que roda em desenvolvimento e o que roda
+ * na loja.
+ */
+export default Sentry.wrap(LayoutRaiz);

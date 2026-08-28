@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 
 import { apiFetch, definirAccessToken, renovarSessao, registrarSaidaPorSessao } from './api';
 import { armazenamentoSeguro } from './armazenamento';
+import { identificarMembro } from '@/nucleo/observabilidade';
 
 /**
  * Estado de sessão do aplicativo.
@@ -63,6 +64,7 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
     setOrganizacao(null);
     setUsuario(null);
     setCapacidades({});
+    identificarMembro(null);
   }, []);
 
   const carregarPerfil = useCallback(async () => {
@@ -71,6 +73,7 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
     setOrganizacao(res.data?.organization ?? null);
     setUsuario(res.data?.user ?? null);
     setCapacidades(res.data?.capabilities ?? {});
+    identificarMembro(res.data?.member?.id ?? null);
   }, []);
 
   // O cliente HTTP não navega sozinho: avisa, e a navegação decide.
@@ -114,6 +117,7 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
     setOrganizacao(res.data?.organization ?? null);
     setUsuario(res.data?.user ?? null);
     setCapacidades(res.data?.capabilities ?? {});
+    identificarMembro(res.data?.member?.id ?? null);
   }, []);
 
   const sair = useCallback(async () => {
