@@ -209,6 +209,50 @@ que num diálogo negativo ("sair?") deixam ambíguo o que "OK" confirma.
 **Descartado:** um modal próprio em JavaScript. O diálogo do sistema já é acessível, já
 respeita o tema e o tamanho de fonte do aparelho, e não pode ser coberto por outro elemento.
 
+## Comunicados do fundador — sem HTML, e a fila reimplementada
+
+**Onde:** `src/componentes/ComunicadoDoFundador.tsx`, `src/nucleo/campanhas.ts`
+**Site faz:** `ModalCampaignHost` + `useReusableModalQueue` + `ReusableModalHost`, cerca de
+500 linhas com teste. Renderiza o `content.html` da campanha num iframe com `sandbox`, que é
+a segunda camada de defesa sobre a sanitização feita no servidor. Recarrega a lista a cada
+dois minutos.
+**App faz:** as mesmas regras de fila, reimplementadas em funções puras
+(`src/nucleo/campanhas.ts`), apresentação própria em `Modal` nativo, **sem renderizar
+`html`**, e sem relógio de recarga.
+**Por quê:** três razões separadas, e vale distingui-las.
+
+**O HTML.** React Native não tem iframe. Exibir HTML de campanha exigiria uma `WebView`: mais
+uma dependência, sem sandbox equivalente ao do navegador, dentro de um modal, num app
+instalado. Uma campanha só com HTML cai no texto padrão — pior que o site nesse caso, e é a
+troca consciente: comunicado com formatação vira comunicado simples, em vez de virar
+superfície de execução de HTML de terceiros. `campanhas.test.ts` fixa isso, inclusive que o
+HTML não vaza para o corpo.
+
+**A recarga.** O site consulta a cada dois minutos. No celular isso é bateria e dado móvel
+gastos para descobrir que nada mudou. Um comunicado do fundador não é urgente ao ponto de
+justificar um relógio: recarregar na abertura basta.
+
+**A duplicação da fila.** O plano fixou `format.ts` como a única mudança no repositório do
+site, então mover a fila para o contrato verificado está fora de escopo. O preço é ter duas
+implementações da mesma regra. O que torna isso aceitável é que as regras são poucas, estão
+todas num arquivo, e cada uma tem teste que descreve o comportamento — se o site mudar, a
+diferença aparece na leitura do teste, não como defeito em produção.
+
+Duas regras seguem idênticas ao site, e os testes existem para elas continuarem assim:
+SHOW_ONCE persiste no servidor ao fechar (senão o comunicado único volta a cada abertura, que
+é a forma mais rápida de ensinar alguém a fechar sem ler), e SHOW_ALWAYS vale só para a
+sessão.
+
+Uma regra é **mais restritiva** que a do site, de propósito: um `cta_path` que o app não
+conhece não vira navegação nenhuma — o botão apenas fecha. No push, o desconhecido cai na tela
+inicial porque um push sempre precisa abrir em algum lugar; aqui, levar a pessoa a uma tela
+sem relação com o comunicado é pior que só fechar. E `cta_path` de cobrança continua indo
+para a tela neutra, pela mesma regra 3.1.3(f) que vale para o push.
+
+**Descartado:** `react-native-webview` para manter a paridade do HTML. Resolveria a
+formatação e traria de volta exatamente a crítica que motivou escolher React Native em vez de
+empacotar o site — uma tela do app que é, na prática, uma página web.
+
 ## Diagnóstico — qual identificador de pacote mostrar
 
 **Onde:** `app/diagnostico.tsx`

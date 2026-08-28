@@ -69,6 +69,24 @@ function apenasCaminho(bruto: string): string {
   return valor.split('?')[0].split('#')[0];
 }
 
+/**
+ * Traduz um caminho do site para uma rota do app, ou `null` se não conhecer.
+ *
+ * A diferença para `rotaDaNotificacao` é o que acontece com o desconhecido, e ela importa:
+ * um push SEMPRE precisa abrir em algum lugar, então cair na tela inicial é a degradação
+ * certa. Já o botão de uma campanha pode simplesmente não navegar — "Entendi" e fechar é
+ * melhor que levar a pessoa a uma tela que não tem nada a ver com o comunicado que ela
+ * acabou de ler.
+ *
+ * A regra de cobrança continua valendo: `/dashboard/settings` vira `/indisponivel`, e quem
+ * chama decide se mostra ou não. Um botão "renovar assinatura" num modal é tão reprovável
+ * pela regra 3.1.3(f) quanto um paywall aberto por push.
+ */
+export function rotaDoCaminhoDoSite(bruto: string | null | undefined): RotaDoApp | null {
+  if (typeof bruto !== 'string') return null;
+  return POR_CAMINHO[apenasCaminho(bruto)] ?? null;
+}
+
 export type NotificacaoParaRota = {
   category?: string | null;
   metadata?: Record<string, unknown> | null;

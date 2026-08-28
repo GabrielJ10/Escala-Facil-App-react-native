@@ -14,6 +14,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { cores } from '@/nucleo/tema';
 import { SessaoProvider } from '@/nucleo/sessao';
 import { PortaoDeVersao } from '@/componentes/PortaoDeVersao';
+import { ComunicadoDoFundador } from '@/componentes/ComunicadoDoFundador';
 import { useNavegacaoPorPush } from '@/nucleo/ganchos-de-push';
 import { configurarApresentacao } from '@/nucleo/push';
 
@@ -65,6 +66,9 @@ export default function LayoutRaiz() {
             <SessaoProvider>
               <StatusBar style="dark" />
               <Navegacao />
+              {/* Fora da pilha: um comunicado não é uma tela, e empilhá-lo faria o botão
+                  voltar do Android levar de volta a ele. */}
+              <ComunicadoDoFundador />
             </SessaoProvider>
           </PortaoDeVersao>
         </PersistQueryClientProvider>

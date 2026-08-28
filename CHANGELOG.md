@@ -36,6 +36,7 @@ Dez entradas novas em [`docs/divergencias-app-web.md`](docs/divergencias-app-web
 | `app/escala.tsx` | Lista por dia com vagas na frente, no lugar da grade de 2.690 linhas |
 | `app/turno/[id].tsx` | Alocar escolhendo da lista, no lugar de arrastar |
 | `app/turno-avulso.tsx` | Teclado por plataforma; horário vem do modelo, não digitado |
+| `src/componentes/ComunicadoDoFundador.tsx` | Sem HTML da campanha, sem relógio de recarga |
 
 ### Adicionado
 
@@ -66,7 +67,13 @@ Dez entradas novas em [`docs/divergencias-app-web.md`](docs/divergencias-app-web
 - **`lerUltimoErro`** em `api.ts` — a última rota, status e horário de falha, para o
   diagnóstico. Nunca o corpo da resposta: ela pode carregar dado de terceiros, e a tela existe
   para ser colada numa conversa de suporte.
-- **120 testes novos** (277 no total), com quinze mutações verificadas: cada teste foi
+- **Comunicados do fundador no app** — `ComunicadoDoFundador` mostra a fila de campanhas
+  modais, uma de cada vez. As regras (ordem por prioridade, SHOW_ONCE que persiste,
+  SHOW_ALWAYS que volta na próxima abertura) estão puras em `src/nucleo/campanhas.ts`.
+  **O `html` da campanha não é renderizado**: o site o exibe num iframe com sandbox, e o
+  React Native não tem iframe — a alternativa seria uma WebView sem sandbox equivalente,
+  dentro de um modal, num app instalado.
+- **143 testes novos** (300 no total), com vinte mutações verificadas: cada teste foi
   conferido quebrando de propósito o que ele diz cobrir.
 
 ### Corrigido

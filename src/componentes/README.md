@@ -18,11 +18,20 @@ para quando uma *ação* falhou e a lista que já estava na frente da pessoa con
 500 itens. A altura constante (`ALTURA_CARTAO_TURNO`) deixa a lista virtualizada calcular
 posição sem medir item a item, que é o que faz rolagem longa engasgar.
 
+**`ComunicadoDoFundador.tsx`** — a fila de comunicados, um modal de cada vez. Fica fora da
+pilha de navegação de propósito: um comunicado não é uma tela, e empilhá-lo faria o botão
+voltar do Android levar de volta a ele. As regras da fila são puras e moram em
+`src/nucleo/campanhas.ts`; aqui só há apresentação — e a decisão de **não renderizar o HTML
+da campanha**, que no site vai num iframe com sandbox que o React Native não tem.
+
 **`PortaoDeVersao.tsx`** — envolve o app inteiro e bloqueia quando o binário é velho demais
 para falar com o servidor. A regra mais importante aqui é **falhar aberto**: sem resposta, com
 resposta ilegível, ou com a consulta em voo, as crianças renderizam normalmente.
 
 ## De onde vêm os dados
+
+`ComunicadoDoFundador` consulta `/tenants/modal-campaigns/active` e escreve em
+`/dismiss` e `/event`. As outras duas famílias abaixo são mais simples:
 
 `Estados` e `CartaoTurno` não buscam nada — recebem por props. `Erro` e `FaixaDeErro` chamam
 `mensagemDeErro` de `src/nucleo/apresentacao.ts`, que é pura: o componente arranja, a função
@@ -37,6 +46,10 @@ veredicto sai de `avaliarVersao`, também pura e testada.
 
 `Estados` e `CartaoTurno` não têm equivalente: o site resolve estado vazio e erro dentro de
 cada página, e o cartão é uma célula da grade.
+
+`ComunicadoDoFundador` diverge em três pontos registrados: não renderiza o `html` da
+campanha (sem iframe, sem WebView), não recarrega em relógio de dois minutos, e um
+`cta_path` desconhecido não vira navegação — o botão apenas fecha.
 
 `PortaoDeVersao` diverge por existir — não há binário antigo instalado num navegador — e
 ramifica por `Platform.OS` para escolher entre a App Store e a Play Store. Mandar um usuário
@@ -63,6 +76,8 @@ O que estes componentes decidem está coberto pelos testes puros:
 - o texto de cada tipo de erro, e a garantia de que o 402 não cita preço →
   `src/nucleo/__tests__/apresentacao.test.ts`
 - o veredicto do portão, incluindo o "falha aberto" → `src/nucleo/__tests__/versao.test.ts`
+- a fila de comunicados: ordem, persistência de SHOW_ONCE, descarte do HTML →
+  `src/nucleo/__tests__/campanhas.test.ts`
 
 O que sobra — se o componente realmente aparece na tela, e com que aparência — é verificado
 pelos fluxos do Maestro e por um aparelho de verdade. O simulador mente sobre desempenho.

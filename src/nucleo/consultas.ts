@@ -9,8 +9,9 @@ import {
 import { apiFetch, type ErroApi } from './api';
 import type { PortaoDeVersao } from './versao';
 import type { TurnoDaEscala } from './escala';
+import type { CampanhaDaApi } from './campanhas';
 
-export type { TurnoDaEscala };
+export type { TurnoDaEscala, CampanhaDaApi };
 
 /**
  * As consultas do aplicativo, num lugar só.
@@ -74,6 +75,10 @@ export const rotas = {
   modelosDeTurno: '/shift-models',
   membros: '/users?limit=200',
 
+  campanhasAtivas: '/tenants/modal-campaigns/active',
+  dispensarCampanha: (id: string) => `/tenants/modal-campaigns/${id}/dismiss`,
+  eventoDeCampanha: (id: string) => `/tenants/modal-campaigns/${id}/event`,
+
   notificacoes: '/notifications?status=ALL',
   resumoNotificacoes: '/notifications/summary',
   marcarLida: (id: string) => `/notifications/${id}/read`,
@@ -105,6 +110,8 @@ export const chaves = {
 
   notificacoes: ['notificacoes', 'lista'] as const,
   resumoNotificacoes: ['notificacoes', 'resumo'] as const,
+
+  campanhas: ['campanhas', 'ativas'] as const,
 };
 
 // ── Tipos do que a API devolve ──────────────────────────────────────────────
@@ -498,6 +505,63 @@ export function opcoesDesalocarMembro(
 export function useDesalocarMembro() {
   const cliente = useQueryClient();
   return useMutation(opcoesDesalocarMembro(cliente));
+}
+
+// ── Comunicados do fundador ─────────────────────────────────────────────────
+
+/**
+ * As campanhas ativas para este membro.
+ *
+ * O site recarrega a cada dois minutos. Aqui não: no celular isso é bateria e dado móvel
+ * gastos para descobrir que nada mudou. Um comunicado do fundador não é urgente ao ponto de
+ * justificar um relógio; recarregar na abertura e quando a tela volta ao foco é suficiente.
+ *
+ * `retry: false` porque campanha é conteúdo secundário. Insistir num comunicado que falhou é
+ * gastar rede que a escala pode precisar.
+ */
+export function useCampanhasAtivas(habilitado = true) {
+  return useQuery({
+    queryKey: chaves.campanhas,
+    queryFn: () => apiFetch<Envelope<{ items: CampanhaDaApi[] }>>(rotas.campanhasAtivas)
+      .then((r) => r.data.items ?? []),
+    enabled: habilitado,
+    retry: false,
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+export function opcoesDispensarCampanha(
+  cliente: QueryClient,
+): UseMutationOptions<unknown, ErroApi, { id: string; chave: string }> {
+  return {
+    mutationFn: ({ id, chave }) => apiFetch(rotas.dispensarCampanha(id), {
+      method: 'POST',
+      body: JSON.stringify({ metadata: { source: 'app', campaign_key: chave } }),
+    }),
+    onSuccess: () => {
+      cliente.invalidateQueries({ queryKey: chaves.campanhas });
+    },
+  };
+}
+
+export function useDispensarCampanha() {
+  const cliente = useQueryClient();
+  return useMutation(opcoesDispensarCampanha(cliente));
+}
+
+export type EventoDeCampanha = { id: string; tipo: 'IMPRESSION' | 'CLICK' };
+
+/**
+ * Telemetria do comunicado. Nunca bloqueia nada, e falhar não tem consequência para quem
+ * está lendo — por isso não invalida cache e não tem tratamento de erro na tela.
+ */
+export function useRegistrarEventoDeCampanha() {
+  return useMutation<unknown, ErroApi, EventoDeCampanha>({
+    mutationFn: ({ id, tipo }) => apiFetch(rotas.eventoDeCampanha(id), {
+      method: 'POST',
+      body: JSON.stringify({ event_type: tipo }),
+    }),
+  });
 }
 
 // ── Notificações ────────────────────────────────────────────────────────────
