@@ -73,6 +73,24 @@ export default function Perfil() {
 
       <Pressable
         style={estilos.link}
+        onPress={() => router.push('/avisos')}
+        accessibilityRole="button"
+        accessibilityLabel="Avisos no celular"
+      >
+        <Text style={estilos.linkTexto}>Avisos no celular</Text>
+      </Pressable>
+
+      <Pressable
+        style={estilos.link}
+        onPress={() => router.push('/calendario')}
+        accessibilityRole="button"
+        accessibilityLabel="Agenda do celular"
+      >
+        <Text style={estilos.linkTexto}>Agenda do celular</Text>
+      </Pressable>
+
+      <Pressable
+        style={estilos.link}
         onPress={() => router.push('/diagnostico')}
         accessibilityRole="button"
         accessibilityLabel="Abrir diagnóstico"

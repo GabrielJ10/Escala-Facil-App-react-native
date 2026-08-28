@@ -16,6 +16,8 @@ rede cai, e qual texto a pessoa lê quando algo dá errado.
 | `apresentacao.ts` | As decisões de tela, em funções puras: textos de erro, rótulos, validações |
 | `escala.ts` | A aritmética da escala do gestor: semanas, intervalos, instantes no fuso |
 | `campanhas.ts` | As regras da fila de comunicados do fundador |
+| `calendario.ts` | O que criar, atualizar e apagar no calendário do sistema |
+| `calendario-do-sistema.ts` | A execução disso via `expo-calendar`, e o mapeamento em disco |
 | `versao.ts` | Comparação de versão e o veredicto do portão |
 | `push.ts` | Permissão, canal do Android, token do Expo e registro do aparelho |
 | `ganchos-de-push.ts` | Abrir na tela certa quando alguém toca numa notificação |
@@ -97,6 +99,8 @@ continuar quebrando quando quebrados:
 | a persistência de SHOW_ONCE em `acaoAoFechar` | `campanhas.test.ts` |
 | o descarte do `html` da campanha | `campanhas.test.ts` |
 | o desempate por id em `ordenarPorPrioridade` | `campanhas.test.ts` |
+| a janela em `planejarSincronizacao` (apagando fora dela) | `calendario.test.ts` |
+| o fuso do dia gravado em `aplicarAoMapeamento` | `calendario.test.ts` |
 | a invalidação do painel ao responder troca | `consultas.test.ts` |
 | o "falha aberto" de `avaliarVersao` | `versao.test.ts` |
 | o texto neutro do 402 (citando preço ou plano) | `apresentacao.test.ts` |

@@ -16,6 +16,10 @@ const POR_AMBIENTE: Record<Ambiente, { nome: string; id: string; api: string }> 
     nome: 'Escala Fácil DEV',
     id: 'br.app.escalafacil.dev',
     // Emulador Android não enxerga "localhost" do computador; 10.0.2.2 é o atalho dele.
+    //
+    // HTTP sem TLS aqui é deliberado e só alcança este ambiente: o destino é a máquina do
+    // desenvolvedor, na rede dele. Staging e produção são HTTPS, e o Android bloqueia
+    // tráfego em claro por padrão em build de release — então isto não vaza para a loja.
     api: process.env.API_URL || 'http://10.0.2.2:3333/api/v1',
   },
   staging: {
@@ -61,7 +65,35 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       ],
     },
 
-    plugins: ['expo-router', 'expo-secure-store'],
+    /**
+     * Os plugins que precisam de build nativo.
+     *
+     * Estes textos são o que a pessoa lê no diálogo do sistema, e no iOS eles também são
+     * lidos pelo revisor da App Store: um texto genérico ("o app precisa de acesso") é
+     * motivo de rejeição. Cada um diz o QUE o app faz com a permissão, não que ele a quer.
+     *
+     * Mexer nesta lista exige `eas build` e passar pela loja — não sai por `eas update`.
+     */
+    plugins: [
+      'expo-router',
+      'expo-secure-store',
+      [
+        'expo-calendar',
+        {
+          calendarPermission:
+            'Para colocar seus turnos na agenda do celular, num calendário separado que você '
+            + 'pode remover quando quiser.',
+        },
+      ],
+      [
+        'expo-notifications',
+        {
+          // O canal e o ícone do Android. Sem ícone monocromático, o Android desenha um
+          // quadrado branco na barra de status.
+          color: '#2E4BD8',
+        },
+      ],
+    ],
 
     extra: {
       ambiente: AMBIENTE,

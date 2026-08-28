@@ -22,6 +22,7 @@ navegação, nessa ordem.
 | `turno/[id]` | gestor | Um turno: alocar da lista, ou tirar da escala |
 | `turno-avulso` | gestor | Criar turno pontual — a forma de montar escala pelo celular |
 | `indisponivel` | todos | A tela neutra de acesso suspenso. Sem preço, sem oferta |
+| `calendario` | todos | Levar os turnos para a agenda do celular |
 | `diagnostico` | suporte | Ambiente, versão, token de push, último erro |
 
 Duas convenções que valem para todas:
@@ -53,6 +54,8 @@ O que cada tela consome:
   para a lista de quem pode ser alocado.
 - `turno-avulso` → `/locations` e `/shift-models`, ambos com `staleTime` de uma hora: são
   cadastro, não movimento, e recarregá-los a cada toque custaria em toda sessão.
+- `calendario` → nada de novo: reaproveita os turnos que `/users/me/dashboard` já trouxe.
+  O destino não é a API, é o calendário do aparelho.
 
 Leitura funciona sem rede, servida pelo cache persistido. **Escrita não** — e a recusa é
 explícita, porque falhar de forma estranha ensina a pessoa a não confiar no app.

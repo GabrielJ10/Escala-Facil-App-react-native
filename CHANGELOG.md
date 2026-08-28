@@ -14,9 +14,15 @@ Segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ### Exige build nativo?
 
-**Sim.** `expo-notifications` e `expo-device` entraram como dependências nativas: pedem
-permissão do sistema, canal de notificação no Android e entitlement de push no iOS. Nada
-disso alcança um aparelho por `eas update` — precisa de `eas build` e passar pela loja.
+**Sim.** Três dependências nativas entraram: `expo-notifications` e `expo-device` (permissão
+do sistema, canal de notificação no Android, entitlement de push no iOS) e `expo-calendar`
+(acesso ao calendário, com `NSCalendarsUsageDescription` no iOS e READ/WRITE_CALENDAR no
+Android). Nada disso alcança um aparelho por `eas update` — precisa de `eas build` e passar
+pela loja.
+
+Os textos de permissão ficam em `app.config.ts`. No iOS eles são lidos pelo revisor da App
+Store: texto genérico é motivo de rejeição, então cada um diz o que o app faz com a
+permissão, não que ele a quer.
 
 Depois deste build, as telas e a lógica desta versão saem por `eas update` normalmente.
 
@@ -37,6 +43,7 @@ Dez entradas novas em [`docs/divergencias-app-web.md`](docs/divergencias-app-web
 | `app/turno/[id].tsx` | Alocar escolhendo da lista, no lugar de arrastar |
 | `app/turno-avulso.tsx` | Teclado por plataforma; horário vem do modelo, não digitado |
 | `src/componentes/ComunicadoDoFundador.tsx` | Sem HTML da campanha, sem relógio de recarga |
+| `src/nucleo/calendario-do-sistema.ts` | Fonte do calendário por plataforma; `expo-calendar` no lugar de módulo próprio |
 
 ### Adicionado
 
@@ -73,8 +80,19 @@ Dez entradas novas em [`docs/divergencias-app-web.md`](docs/divergencias-app-web
   **O `html` da campanha não é renderizado**: o site o exibe num iframe com sandbox, e o
   React Native não tem iframe — a alternativa seria uma WebView sem sandbox equivalente,
   dentro de um modal, num app instalado.
-- **143 testes novos** (300 no total), com vinte mutações verificadas: cada teste foi
-  conferido quebrando de propósito o que ele diz cobrir.
+- **A escala na agenda do celular** — um calendário dedicado "Escala Fácil" com os próximos
+  60 dias, sincronizado quando a pessoa toca, nunca em segundo plano. `calendario.ts` decide
+  o que criar, atualizar e apagar (puro, testado); `calendario-do-sistema.ts` executa via
+  `expo-calendar`.
+- **Fluxos do Maestro** (`maestro/`) — os seis caminhos que não podem quebrar, escritos e
+  ainda não executados: não há aparelho neste ambiente. O `06` afirma a **ausência** de
+  "assinar", "plano", "renovar", "pagamento" e "R$" na tela de acesso suspenso; cada
+  asserção corresponde a um motivo de rejeição pela regra 3.1.3(f).
+- **CI no GitHub Actions** (`.github/workflows/verificar.yml`) — só neste repositório, como
+  o plano definiu. Roda `npm run verificar` e empacota nas duas plataformas: `tsc` valida
+  tipos, o Metro resolve módulos de verdade, e é o segundo que pega import inexistente.
+- **169 testes novos** (326 no total), com vinte e cinco mutações verificadas: cada teste
+  foi conferido quebrando de propósito o que ele diz cobrir.
 
 ### Corrigido
 
@@ -107,5 +125,10 @@ Dez entradas novas em [`docs/divergencias-app-web.md`](docs/divergencias-app-web
 - **Nada de novo no cache local**, então esta versão pode ser revertida por
   `eas update:rollback` sem migração. A regra continua valendo: nunca publicar mudança de
   formato do cache sem migração — o rollback não desfaz o que já foi gravado no aparelho.
+- **A Fase 7 usa `expo-calendar` em vez de um módulo nativo escrito por nós**, que era o que
+  o plano previa. O motivo é a prioridade declarada para este app: pouca manutenção. Módulo
+  próprio significaria duas pontes nativas, uma migração a cada versão do SDK e um plugin de
+  configuração nosso — para chegar à mesma funcionalidade. O caminho de volta é barato:
+  `calendario.ts` não sabe que `expo-calendar` existe.
 - O `registrarAparelho` silencioso em `minha-escala` só age com a permissão **já concedida**.
   Nunca dispara o pedido do sistema; isso é da tela `/avisos`.

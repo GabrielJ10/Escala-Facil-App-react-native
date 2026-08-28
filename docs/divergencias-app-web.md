@@ -209,6 +209,46 @@ que num diálogo negativo ("sair?") deixam ambíguo o que "OK" confirma.
 **Descartado:** um modal próprio em JavaScript. O diálogo do sistema já é acessível, já
 respeita o tema e o tamanho de fonte do aparelho, e não pode ser coberto por outro elemento.
 
+## Calendário do sistema — a fonte, e o módulo que não escrevemos
+
+**Onde:** `src/nucleo/calendario-do-sistema.ts`, `app/calendario.tsx`
+**Site faz:** não existe. O navegador não alcança o calendário do sistema; o mais próximo é
+o feed ICS de `/exports/public/schedule/:token`, que é uma assinatura, não uma integração.
+**App faz:** cria um calendário dedicado chamado "Escala Fácil" e mantém os turnos dos
+próximos 60 dias nele. Ramifica por `Platform.OS` na hora de escolher a **fonte** do
+calendário novo.
+**Por quê:** é onde as duas plataformas mais divergem, e errar significa criar um calendário
+que existe e não aparece.
+
+O iOS exige uma `source` real — a do calendário padrão. Inventar uma faz o `createCalendar`
+passar e o evento não aparecer em lugar nenhum. O Android aceita `ACCOUNT_TYPE_LOCAL`, que é
+o que mantém os eventos no aparelho em vez de sincronizá-los com uma conta Google que a pessoa
+não escolheu compartilhar conosco.
+
+**Desvio do plano, deliberado.** A Fase 7 previa um módulo nativo próprio — Swift com EventKit
+e Kotlin com CalendarContract, atrás de uma interface única. Este código usa `expo-calendar`,
+que já é exatamente isso, mantido pela Expo e versionado junto com o SDK.
+
+O motivo é a prioridade que foi declarada para este aplicativo: **pouca manutenção.** Um
+módulo nativo próprio é o oposto — duas pontes para manter, uma migração a cada versão do
+SDK, e um plugin de configuração nosso. O argumento a favor de escrevê-lo era provar que o app
+é nativo de verdade para a regra 4.2 da Apple, e esse argumento vale igual aqui: a integração
+com o calendário do sistema é a mesma, feita por código nativo, apenas não escrito por nós.
+
+O caminho de volta continua aberto e barato: `calendario.ts` — que decide o que criar,
+atualizar e apagar — não sabe que `expo-calendar` existe. Trocar a implementação mexe só
+neste arquivo.
+
+**Descartado:** sincronizar em segundo plano. Escrever sozinho no calendário de alguém é o
+tipo de comportamento que faz o app ser desinstalado, e um sync automático que erra escreve o
+erro em silêncio, num aplicativo que não é o nosso. A sincronização acontece quando a pessoa
+toca.
+
+**Descartado também:** usar a agenda pessoal em vez de um calendário separado. Sem separação
+não há como oferecer "remover da agenda" com confiança — a limpeza evento por evento deixaria
+sobras sempre que o mapeamento estivesse incompleto, e ele pode estar depois de qualquer falha
+parcial.
+
 ## Comunicados do fundador — sem HTML, e a fila reimplementada
 
 **Onde:** `src/componentes/ComunicadoDoFundador.tsx`, `src/nucleo/campanhas.ts`

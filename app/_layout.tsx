@@ -108,6 +108,7 @@ function Navegacao() {
       <Stack.Screen name="turno/[id]" options={{ title: 'Turno' }} />
       <Stack.Screen name="perfil" options={{ title: 'Perfil' }} />
       <Stack.Screen name="avisos" options={{ title: 'Avisos no celular' }} />
+      <Stack.Screen name="calendario" options={{ title: 'Agenda do celular' }} />
       <Stack.Screen name="indisponivel" options={{ title: 'Acesso suspenso' }} />
       <Stack.Screen name="diagnostico" options={{ title: 'Diagnóstico' }} />
     </Stack>
