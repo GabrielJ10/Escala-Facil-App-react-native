@@ -71,3 +71,29 @@ tela por conta própria (`adjustResize`); no iOS o teclado cobre o campo e o app
 reagir. Aplicar `padding` nos dois faz o Android empurrar duas vezes e o botão sair da tela.
 **Descartado:** biblioteca de teclado (`react-native-keyboard-aware-scroll-view`) — mais uma
 dependência para resolver duas linhas.
+
+## Destino da notificação — o mapa de rotas
+
+**Onde:** `src/nucleo/rotas-do-push.ts`
+**Site faz:** `resolveNotificationTargetPath` em `notificationTypes.ts` devolve o próprio
+caminho (`/dashboard/trocas`), porque o site É essa árvore de rotas. Usa
+`window.location.origin` para descartar links externos.
+**App faz:** traduz o caminho do site para a rota do app, e o que não conhece cai na tela
+inicial em vez de devolver nulo.
+**Por quê:** o backend guarda o destino como caminho do site — foi ele quem existiu primeiro.
+O app tem outra árvore de navegação. Sem tradução, notificação de uma versão mais nova do
+servidor abre nada num app antigo: o usuário toca, cai na tela inicial, e ninguém reporta,
+porque não houve erro.
+
+Duas regras que o site não precisa ter:
+
+1. **Caminho desconhecido nunca é erro.** O servidor ganha destinos a cada deploy e o app
+   instalado não sabe deles. Abrir na tela errada é ruim; não abrir é pior.
+2. **Cobrança vai para a tela neutra.** Oito `target_path` do backend apontam para
+   `/dashboard/settings?tab=billing`. Um push de "sua assinatura venceu" abrindo tela de
+   preço dentro do app é o que a regra 3.1.3(f) da Apple reprova — e é ruído para o
+   funcionário, que não é quem paga.
+
+**Descartado:** reusar `resolveNotificationTargetPath` do contrato compartilhado. Ele
+depende de `window.location.origin`, e o resultado dele (um caminho do site) não serve para
+navegar aqui.
