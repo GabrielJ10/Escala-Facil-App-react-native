@@ -28,7 +28,7 @@ Depois deste build, as telas e a lógica desta versão saem por `eas update` nor
 
 ### Divergências introduzidas
 
-Dez entradas novas em [`docs/divergencias-app-web.md`](docs/divergencias-app-web.md):
+Doze entradas novas em [`docs/divergencias-app-web.md`](docs/divergencias-app-web.md):
 
 | Onde | Diferença |
 |---|---|
