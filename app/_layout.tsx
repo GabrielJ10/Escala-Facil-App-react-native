@@ -9,7 +9,6 @@ import { iniciarObservabilidade } from '@/nucleo/observabilidade';
 // capturar, e ele acontece antes de qualquer efeito rodar. Sem DSN, isto não faz nada.
 iniciarObservabilidade();
 
-import { useEffect, useState } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -58,11 +57,6 @@ const persistidor = createAsyncStoragePersister({
 configurarApresentacao();
 
 function LayoutRaiz() {
-  const [pronto, setPronto] = useState(false);
-
-  useEffect(() => { setPronto(true); }, []);
-  if (!pronto) return null;
-
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>

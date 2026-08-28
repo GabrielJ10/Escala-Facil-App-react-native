@@ -48,6 +48,31 @@ Doze entradas novas em [`docs/divergencias-app-web.md`](docs/divergencias-app-we
 
 ### Adicionado
 
+- **ESLint neste repositório, que não tinha nenhum.** O backend tem ESLint com SonarJS, o
+  site tem as regras de hook — este repo não tinha nada, e é o que mais precisa das duas
+  coisas: quase toda tela aqui é composição de hooks, e um array de dependências errado num
+  app não vira aviso no console de ninguém. Vira bateria consumida em segundo plano, ou uma
+  tela que não atualiza e que ninguém consegue reproduzir.
+
+  As regras de hook entram como **erro**, não aviso: no site elas eram aviso e conviveram com
+  seis pendências, uma das quais fazia um efeito rodar em todo render. Aqui ainda não há
+  dívida para acomodar. `npm run lint` entrou no `verificar` e na CI, entre o typecheck e o
+  contrato.
+
+  A primeira passada achou três coisas, e nenhuma era estilo:
+
+  1. `app/_layout.tsx` renderizava `null` no primeiro render, atrás de um
+     `useState`+`useEffect` sem comentário nenhum. Não estabelecia ordem: `Navegacao` e
+     `Stack` montam juntos com ou sem ele. Removido — um render a menos na abertura a frio,
+     que é justamente o orçamento mais apertado do plano.
+  2. `app/claim-invite.tsx` — exceção analisada e registrada no código: a escrita no servidor
+     é o caso que a própria mensagem da regra descreve como aquilo para que efeitos existem.
+  3. `presentWarning` estava com complexidade cognitiva 23 — e, ao medir o que um refactor
+     quebraria, **metade dos ramos não tinha teste nenhum**. Onze casos de caracterização
+     foram escritos contra o código como ele era, e só então a função virou duas tabelas de
+     despacho. A ordem de avaliação foi preservada e agora está fixada por teste: um aviso de
+     feriado que também traga `overlap_minutes` continua saindo como feriado.
+
 - **`src/nucleo/observabilidade.ts`** — relatório de erro por Sentry, com duas regras que
   valem mais que o próprio relatório:
 

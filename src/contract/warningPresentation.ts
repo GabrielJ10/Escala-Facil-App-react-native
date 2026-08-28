@@ -131,101 +131,151 @@ function detail(label: string, value: string | null | undefined): { label: strin
   return clean ? { label, value: clean } : null;
 }
 
+/**
+ * Afastamento — o único ramo que monta `details` a partir de período e motivo.
+ */
+function presentAbsence(warning: WarningLike, forced: boolean): WarningPresentation {
+  const period = formatDateRange(warning);
+  const reason = stringValue(warning, 'reason');
+  const memberName = stringValue(warning, 'member_name');
+  const details = [
+    detail('Período', period),
+    detail('Motivo', reason),
+  ].filter(Boolean) as Array<{ label: string; value: string }>;
+
+  return {
+    title: forced ? 'Alocação forçada durante afastamento' : 'Funcionário em afastamento',
+    description: memberName
+      ? `${memberName} está afastado${period ? ` de ${period}` : ' neste período'}.`
+      : (period ? `Afastado de ${period}.` : 'Existe um afastamento ativo neste período.'),
+    consequence: forced
+      ? 'Este turno foi mantido mesmo com indisponibilidade registrada.'
+      : 'Forçar a alocação manterá o funcionário escalado mesmo indisponível.',
+    details,
+  };
+}
+
+/**
+ * Cargo divergente — lê os campos estruturados e cai na mensagem legada quando faltam.
+ */
+function presentRoleMismatch(warning: WarningLike, rawMessage: string): WarningPresentation {
+  const parsed = extractRoleMismatch(rawMessage);
+  const expected = stringValue(warning, 'expected_role') || parsed?.expected || '';
+  const actual = stringValue(warning, 'actual_role') || parsed?.actual || '';
+  const details = [
+    detail('Vaga', expected),
+    detail('Selecionado', actual),
+  ].filter(Boolean) as Array<{ label: string; value: string }>;
+
+  return {
+    title: 'Cargo diferente do necessário',
+    description: expected && actual
+      ? `A vaga pede ${expected}, mas o funcionário selecionado está como ${actual}.`
+      : 'O cargo do funcionário selecionado não corresponde ao cargo pedido para este turno.',
+    consequence: 'Confirme apenas se essa pessoa pode cobrir esta função com segurança.',
+    details,
+  };
+}
+
+/**
+ * Avisos que o código sozinho identifica: nenhum campo estruturado é lido, e a mensagem do
+ * backend vira a descrição depois de passar pela limpeza de cada caso.
+ *
+ * A ordem é comportamento, não estilo — `includes` casa por conteúdo, então um código que
+ * contivesse as duas palavras sairia como o primeiro da lista.
+ */
+const BY_CODE: ReadonlyArray<{
+  matches: (code: string) => boolean;
+  title: string;
+  consequence: string;
+  describe: (rawMessage: string) => string;
+}> = [
+  {
+    matches: (code) => code === 'QUALIFICATION_HARD',
+    title: 'Critério obrigatório não atendido',
+    consequence: 'Forçar a alocação ignora um critério obrigatório desta cobertura.',
+    describe: (m) => stripRulePrefix(m)
+      || 'Esta cobertura exige um critério que o funcionário selecionado não cumpre.',
+  },
+  {
+    matches: (code) => code === 'QUALIFICATION_SOFT',
+    title: 'Preferência não atendida',
+    consequence: 'A alocação é permitida, mas foge da preferência definida.',
+    describe: (m) => stripRulePrefix(m)
+      || 'O funcionário selecionado foge de uma preferência definida para esta cobertura.',
+  },
+  {
+    matches: (code) => code.includes('HOLIDAY'),
+    title: 'Turno em folga ou feriado',
+    consequence: 'Revise antes de confirmar para evitar escala em dia bloqueado.',
+    describe: cleanTechnicalMessage,
+  },
+  {
+    matches: (code) => code.includes('LOCKED_SHIFT'),
+    title: 'Turno bloqueado manualmente',
+    consequence: 'A confirmação altera um turno que estava protegido contra mudanças automáticas.',
+    describe: cleanTechnicalMessage,
+  },
+];
+
+/**
+ * Avisos reconhecidos por um campo numérico, avaliados só depois que nenhum código casou.
+ *
+ * `!== undefined` e não teste de verdade: zero é valor legítimo nos dois casos — sobreposição
+ * de zero minuto é o encaixe exato, e descanso de zero é o pior caso, não a ausência do dado.
+ */
+const BY_FIELD: ReadonlyArray<{
+  matches: (warning: WarningLike) => boolean;
+  title: string;
+  consequence: string;
+}> = [
+  {
+    matches: (warning) => warning.overlap_minutes !== undefined,
+    title: 'Sobreposição de horário',
+    consequence: 'O funcionário pode ficar alocado em horários conflitantes.',
+  },
+  {
+    matches: (warning) => warning.rest_min !== undefined || warning.required_rest_min !== undefined,
+    title: 'Descanso entre turnos abaixo do ideal',
+    consequence: 'Revise se a carga e o descanso continuam seguros.',
+  },
+];
+
+/**
+ * De um aviso do backend para o que a pessoa lê na tela.
+ *
+ * Era uma sequência de treze `if` com complexidade cognitiva 23. A ordem de avaliação foi
+ * preservada exatamente — código antes de campo, e dentro de cada grupo a mesma sequência —
+ * porque ela decide o título quando um aviso casa com mais de um ramo.
+ */
 export function presentWarning(warning: WarningLike): WarningPresentation {
   const code = baseCode(warning);
   const rawMessage = warning.message || '';
-  const forced = normalizeCode(warning).endsWith('_FORCED');
 
   if (code === 'ABSENT') {
-    const period = formatDateRange(warning);
-    const reason = stringValue(warning, 'reason');
-    const memberName = stringValue(warning, 'member_name');
-    const details = [
-      detail('Período', period),
-      detail('Motivo', reason),
-    ].filter(Boolean) as Array<{ label: string; value: string }>;
-
-    return {
-      title: forced ? 'Alocação forçada durante afastamento' : 'Funcionário em afastamento',
-      description: memberName
-        ? `${memberName} está afastado${period ? ` de ${period}` : ' neste período'}.`
-        : (period ? `Afastado de ${period}.` : 'Existe um afastamento ativo neste período.'),
-      consequence: forced
-        ? 'Este turno foi mantido mesmo com indisponibilidade registrada.'
-        : 'Forçar a alocação manterá o funcionário escalado mesmo indisponível.',
-      details,
-    };
+    return presentAbsence(warning, normalizeCode(warning).endsWith('_FORCED'));
   }
 
   if (code === 'ROLE_MISMATCH_HARD' || code === 'ROLE_MISMATCH') {
-    const parsed = extractRoleMismatch(rawMessage);
-    const expected = stringValue(warning, 'expected_role') || parsed?.expected || '';
-    const actual = stringValue(warning, 'actual_role') || parsed?.actual || '';
-    const details = [
-      detail('Vaga', expected),
-      detail('Selecionado', actual),
-    ].filter(Boolean) as Array<{ label: string; value: string }>;
-
-    return {
-      title: 'Cargo diferente do necessário',
-      description: expected && actual
-        ? `A vaga pede ${expected}, mas o funcionário selecionado está como ${actual}.`
-        : 'O cargo do funcionário selecionado não corresponde ao cargo pedido para este turno.',
-      consequence: 'Confirme apenas se essa pessoa pode cobrir esta função com segurança.',
-      details,
-    };
+    return presentRoleMismatch(warning, rawMessage);
   }
 
-  if (code === 'QUALIFICATION_HARD') {
+  const byCode = BY_CODE.find((entry) => entry.matches(code));
+  if (byCode) {
     return {
-      title: 'Critério obrigatório não atendido',
-      description: stripRulePrefix(rawMessage) || 'Esta cobertura exige um critério que o funcionário selecionado não cumpre.',
-      consequence: 'Forçar a alocação ignora um critério obrigatório desta cobertura.',
+      title: byCode.title,
+      description: byCode.describe(rawMessage),
+      consequence: byCode.consequence,
       details: [],
     };
   }
 
-  if (code === 'QUALIFICATION_SOFT') {
+  const byField = BY_FIELD.find((entry) => entry.matches(warning));
+  if (byField) {
     return {
-      title: 'Preferência não atendida',
-      description: stripRulePrefix(rawMessage) || 'O funcionário selecionado foge de uma preferência definida para esta cobertura.',
-      consequence: 'A alocação é permitida, mas foge da preferência definida.',
-      details: [],
-    };
-  }
-
-  if (code.includes('HOLIDAY')) {
-    return {
-      title: 'Turno em folga ou feriado',
+      title: byField.title,
       description: cleanTechnicalMessage(rawMessage),
-      consequence: 'Revise antes de confirmar para evitar escala em dia bloqueado.',
-      details: [],
-    };
-  }
-
-  if (code.includes('LOCKED_SHIFT')) {
-    return {
-      title: 'Turno bloqueado manualmente',
-      description: cleanTechnicalMessage(rawMessage),
-      consequence: 'A confirmação altera um turno que estava protegido contra mudanças automáticas.',
-      details: [],
-    };
-  }
-
-  if (warning.overlap_minutes !== undefined) {
-    return {
-      title: 'Sobreposição de horário',
-      description: cleanTechnicalMessage(rawMessage),
-      consequence: 'O funcionário pode ficar alocado em horários conflitantes.',
-      details: [],
-    };
-  }
-
-  if (warning.rest_min !== undefined || warning.required_rest_min !== undefined) {
-    return {
-      title: 'Descanso entre turnos abaixo do ideal',
-      description: cleanTechnicalMessage(rawMessage),
-      consequence: 'Revise se a carga e o descanso continuam seguros.',
+      consequence: byField.consequence,
       details: [],
     };
   }
@@ -236,7 +286,6 @@ export function presentWarning(warning: WarningLike): WarningPresentation {
     details: [],
   };
 }
-
 export function countCriticalWarnings(warnings: WarningLike[]): number {
   return warnings.filter((warning) => warning.type === 'CRITICAL').length;
 }

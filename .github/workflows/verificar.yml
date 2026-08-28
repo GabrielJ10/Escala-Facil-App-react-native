@@ -54,6 +54,12 @@ jobs:
         working-directory: app
         run: npm run typecheck
 
+      # Depois do typecheck e antes do resto: um erro de hook lido sozinho é mais barato de
+      # entender do que misturado à saída dos testes.
+      - name: Lint
+        working-directory: app
+        run: npm run lint
+
       - name: Contrato compartilhado
         if: steps.site.outcome == 'success'
         working-directory: app

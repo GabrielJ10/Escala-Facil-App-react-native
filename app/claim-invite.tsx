@@ -56,6 +56,11 @@ export default function ClaimInvite() {
 
   useEffect(() => {
     if (carregando || !autenticado || !token) return;
+    // `resgatar` marca 'resgatando' antes do primeiro `await`, e é só isso que o linter vê.
+    // Não é estado derivado de outro estado: é uma escrita no servidor — o caso que a própria
+    // mensagem da regra descreve como aquilo para que efeitos existem. A trava `jaTentou`
+    // garante uma tentativa por montagem, então não há cascata.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void resgatar();
   }, [carregando, autenticado, token, resgatar]);
 
