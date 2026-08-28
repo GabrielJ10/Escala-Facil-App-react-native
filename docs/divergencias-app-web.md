@@ -97,3 +97,133 @@ Duas regras que o site não precisa ter:
 **Descartado:** reusar `resolveNotificationTargetPath` do contrato compartilhado. Ele
 depende de `window.location.origin`, e o resultado dele (um caminho do site) não serve para
 navegar aqui.
+
+## Notificações no aparelho — canal, permissão e token
+
+**Onde:** `src/nucleo/push.ts`
+**Site faz:** notificação in-app apenas — uma lista que o usuário abre. Não existe permissão
+a pedir, nem token a registrar, nem canal a criar.
+**App faz:** ramifica por plataforma em dois pontos. Cria o canal `default` no Android antes
+do primeiro push, e declara `platform: 'ios' | 'android'` ao registrar o aparelho.
+**Por quê:** as duas plataformas divergem no que o sistema exige, e as duas falham em
+silêncio se a exigência for ignorada.
+
+No Android, notificação sem canal registrado chega sem som e sem vibração desde o Android 8 —
+parece que não chegou. O canal precisa existir *antes* da primeira notificação; criá-lo
+depois não corrige as que já passaram.
+
+No iOS, a permissão negada é **definitiva**: o sistema não pergunta de novo e recuperar exige
+mandar a pessoa às Configurações, caminho que quase ninguém percorre. Por isso o pedido do
+sistema está separado da tela que o explica (`app/avisos.tsx`) e nunca sai na primeira
+abertura.
+
+O `platform` vai para o backend porque `target_platforms` (Fase 3.2) permite ao console do
+fundador mandar aviso só para um dos dois — útil quando o problema é de uma loja só.
+
+**Descartado:** pedir a permissão na abertura, junto com a restauração da sessão. É o padrão
+mais comum e o pior: gasta a única chance do iOS antes de a pessoa ter visto a escala, e a
+taxa de recusa em pedido não explicado é alta o bastante para inutilizar o canal.
+
+## Portão de versão — para qual loja mandar
+
+**Onde:** `src/componentes/PortaoDeVersao.tsx`
+**Site faz:** não existe. O navegador sempre carrega a versão mais nova; não há binário
+antigo instalado em lugar nenhum.
+**App faz:** compara a versão do binário com o mínimo do servidor e, se estiver abaixo,
+bloqueia com um link para a App Store ou para a Play Store conforme `Platform.OS`.
+**Por quê:** o app instalado pode estar semanas atrás do servidor — atualizar é opcional e a
+loja demora. Sem portão, uma rota que muda de forma quebra um app antigo sem explicação: a
+tela fica vazia, ou pior, mostra dado errado com cara de certo. E as URLs das duas lojas são
+diferentes; mandar um usuário de iPhone para a Play Store é um beco sem saída.
+
+Duas decisões que evitam o portão virar o problema:
+
+1. **Falha aberto.** Sem resposta do servidor, com resposta ilegível, ou com a consulta ainda
+   em voo, o app renderiza normalmente. Um portão que tranca porque não conseguiu perguntar
+   se pode destravar deixaria o app inutilizável durante qualquer queda da API — inclusive
+   para quem está na versão mais nova. Coberto por `versao.test.ts`.
+2. **`recommended` não bloqueia.** Vira uma faixa na tela de escala. Transformar sugestão em
+   obstáculo ensina a pessoa a ignorar o aviso que um dia vai importar.
+
+**Descartado:** bloquear pela versão do `eas update` em vez da versão do binário. O canal de
+update entrega JS novo sem passar pela loja, então a versão do bundle não diz se o binário
+tem o código nativo de que a API precisa — que é justamente o caso em que bloquear importa.
+
+## Teclado cobrindo o formulário de afastamento
+
+**Onde:** `app/afastamentos.tsx`
+**Site faz:** nada — o navegador rola a página sozinho quando o campo ganha foco.
+**App faz:** `KeyboardAvoidingView` com `behavior="padding"` no iOS e nada no Android.
+**Por quê:** o mesmo motivo de `app/entrar.tsx`, e a mesma correção. O Android já empurra a
+tela por conta própria (`adjustResize`); no iOS o teclado cobre o campo. Aplicar `padding`
+nos dois faz o Android empurrar duas vezes e o botão sair da tela.
+**Descartado:** extrair um componente `TelaComTeclado` para os dois formulários. Com duas
+ocorrências de duas linhas, a abstração custaria mais leitura do que economiza. Vale extrair
+na terceira.
+
+## Afastamentos — a tela do funcionário, não a do gestor
+
+**Onde:** `app/afastamentos.tsx`
+**Site faz:** `AfastamentosPage`, 1.187 linhas: lista todos os afastamentos da organização,
+aprova, recusa, cria, edita e apaga. Exige `module_absences`, que é OWNER/ADMIN.
+**App faz:** pedir afastamento e acompanhar os próprios pedidos. Só isso.
+**Por quê:** o funcionário alcança `action_create_absence_request` e `/absences/requests/mine`
+— nada mais. Trazer a tela do gestor para o celular daria uma tela que a maioria dos usuários
+do app não tem permissão de abrir.
+
+Há uma segunda diferença, imposta pelo backend: `listRequestsQuerySchema` tem
+`.default('PENDING_ADMIN_APPROVAL')`, então não existe "trazer tudo" numa chamada só. Daí os
+quatro filtros por situação, que no site seriam uma coluna da tabela.
+
+**Descartado:** buscar as quatro situações em paralelo e juntar no cliente, para imitar a
+lista única do site. Seriam quatro requisições por abertura de tela para economizar um toque.
+
+## Solicitações do gestor — leitura, sem aprovação
+
+**Onde:** `app/solicitacoes.tsx`
+**Site faz:** aprova e recusa trocas e afastamentos, mostrando o impacto antes de confirmar.
+**App faz:** lista o que está parado e diz onde resolver.
+**Por quê:** aprovar uma troca exige o fluxo de duas etapas do backend —
+`POST /requests/:id/preview-impact` devolve um `preview_hash` que `approveSchema` exige como
+obrigatório, e o preview traz os conflitos que o gestor precisa ver antes de decidir: turno
+que fica descoberto, carga horária estourada, qualificação faltando. Um botão "aprovar" que
+pulasse essa leitura seria pior que não ter botão — decidiria no escuro.
+
+A tela existe agora porque é o destino de `pending_admin_requests` e
+`pending_absence_requests` no mapa de rotas do push: sem ela, o toque na notificação abriria
+uma rota inexistente, que é exatamente o defeito que o mapa foi feito para evitar.
+
+**Descartado:** deixar o push cair na tela inicial até a Fase 5. Funciona, mas ensina o
+usuário que a notificação não leva a lugar nenhum — e essa expectativa não se desfaz quando a
+tela chega.
+
+## Confirmação destrutiva — sair da conta
+
+**Onde:** `app/perfil.tsx`
+**Site faz:** `window.confirm`, usado em `AfastamentosPage` e em outras ações destrutivas.
+**App faz:** `Alert.alert` com os botões nomeados pela ação ("Ficar" / "Sair") e `style:
+'destructive'` no que destrói.
+**Por quê:** `window.confirm` não existe no React Native. E a substituição não é literal: o
+`Alert` nativo permite nomear os botões pelo que eles fazem, em vez de "OK" e "Cancelar" —
+que num diálogo negativo ("sair?") deixam ambíguo o que "OK" confirma.
+**Descartado:** um modal próprio em JavaScript. O diálogo do sistema já é acessível, já
+respeita o tema e o tamanho de fonte do aparelho, e não pode ser coberto por outro elemento.
+
+## Diagnóstico — qual identificador de pacote mostrar
+
+**Onde:** `app/diagnostico.tsx`
+**Site faz:** não existe. No navegador, "qual versão você está usando" se responde recarregando
+a página, e o console do navegador já entrega o resto.
+**App faz:** mostra ambiente, versão, identificador do pacote, servidor, estado da sessão,
+permissão de avisos e o último erro de API. Ramifica por `Platform.OS` para ler o
+`bundleIdentifier` do iOS ou o `package` do Android.
+**Por quê:** os três ambientes têm identificadores diferentes de propósito, para ficarem
+instalados lado a lado no mesmo aparelho. Saber qual dos três está na frente da pessoa é a
+primeira pergunta de qualquer suporte — e o campo tem nome diferente nas duas plataformas.
+
+Duas coisas ficam de fora desta tela por segurança, porque ela nasce para ser copiada e colada
+numa conversa: nenhum token inteiro, e nenhum corpo de resposta. Do último erro vão a rota, o
+status e o horário; o conteúdo pode carregar nome, e-mail e escala de terceiros.
+
+**Descartado:** mostrar o token de push completo. Ele identifica o aparelho e permite enviar
+notificação para ele; num print compartilhado em grupo, isso é mais do que suporte precisa.

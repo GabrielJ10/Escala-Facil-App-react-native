@@ -12,16 +12,19 @@ import { armazenamentoSeguro } from './armazenamento';
  * cofre e renova antes de qualquer chamada — sem isso, a primeira requisição sairia sem
  * autorização só para tomar 401 e renovar, custando uma ida e volta em toda abertura.
  */
-type Membro = { id: string; role: string; tenant_id?: string } | null;
-type Organizacao = { id: string; name: string; billing_status?: string } | null;
+type Membro = { id: string; name?: string; role: string; permissions?: Record<string, boolean> } | null;
+type Organizacao = { id: string; name: string; plan?: string; billing_status?: string } | null;
+type Usuario = { id: string; email: string } | null;
 
 type EstadoSessao = {
   carregando: boolean;
   autenticado: boolean;
   membro: Membro;
   organizacao: Organizacao;
+  usuario: Usuario;
   capacidades: Record<string, boolean>;
   entrar: (email: string, senha: string) => Promise<void>;
+  recarregarPerfil: () => Promise<void>;
   sair: () => Promise<void>;
 };
 
@@ -31,6 +34,7 @@ type RespostaAuth = {
   accessToken: string;
   refreshToken?: string;
   data?: {
+    user?: Usuario;
     member?: Membro;
     organization?: Organizacao;
     capabilities?: Record<string, boolean>;
@@ -41,6 +45,7 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
   const [carregando, setCarregando] = useState(true);
   const [membro, setMembro] = useState<Membro>(null);
   const [organizacao, setOrganizacao] = useState<Organizacao>(null);
+  const [usuario, setUsuario] = useState<Usuario>(null);
   const [capacidades, setCapacidades] = useState<Record<string, boolean>>({});
 
   const limpar = useCallback(async () => {
@@ -48,6 +53,7 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
     await armazenamentoSeguro.apagarRefresh();
     setMembro(null);
     setOrganizacao(null);
+    setUsuario(null);
     setCapacidades({});
   }, []);
 
@@ -55,6 +61,7 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
     const res = await apiFetch<{ data: NonNullable<RespostaAuth['data']> }>('/auth/me');
     setMembro(res.data?.member ?? null);
     setOrganizacao(res.data?.organization ?? null);
+    setUsuario(res.data?.user ?? null);
     setCapacidades(res.data?.capabilities ?? {});
   }, []);
 
@@ -97,6 +104,7 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
 
     setMembro(res.data?.member ?? null);
     setOrganizacao(res.data?.organization ?? null);
+    setUsuario(res.data?.user ?? null);
     setCapacidades(res.data?.capabilities ?? {});
   }, []);
 
@@ -119,10 +127,12 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
     autenticado: Boolean(membro),
     membro,
     organizacao,
+    usuario,
     capacidades,
     entrar,
+    recarregarPerfil: carregarPerfil,
     sair,
-  }), [carregando, membro, organizacao, capacidades, entrar, sair]);
+  }), [carregando, membro, organizacao, usuario, capacidades, entrar, carregarPerfil, sair]);
 
   return <Contexto.Provider value={valor}>{children}</Contexto.Provider>;
 }

@@ -43,6 +43,22 @@ export type ErroApi = Error & {
   corpo?: unknown;
 };
 
+/**
+ * O último erro de API, para a tela de diagnóstico.
+ *
+ * Uma linha só, e de propósito: quem relata um problema descreve o que viu, não quando. Com
+ * o horário e o status ao lado da rota, "deu erro ontem" vira uma requisição localizável no
+ * log do servidor.
+ *
+ * Guarda a ROTA, nunca o corpo: a resposta pode conter nome, e-mail e escala de terceiros, e
+ * esta tela existe para ser copiada e colada numa conversa de suporte.
+ */
+let ultimoErro: { quando: string; rota: string; status: number } | null = null;
+
+export function lerUltimoErro() {
+  return ultimoErro;
+}
+
 function erroDe(mensagem: string, status: number, corpo?: unknown): ErroApi {
   const e = new Error(mensagem) as ErroApi;
   e.status = status;
@@ -146,6 +162,7 @@ export async function apiFetch<T = unknown>(
       res = await executar();
     } else {
       aoPerderSessao();
+      ultimoErro = { quando: new Date().toISOString(), rota, status: 401 };
       throw erroDe('Sua sessão expirou. Entre novamente.', 401);
     }
   }
@@ -153,6 +170,7 @@ export async function apiFetch<T = unknown>(
   if (!res.ok) {
     let corpo: unknown = null;
     try { corpo = await res.json(); } catch { /* resposta sem corpo */ }
+    ultimoErro = { quando: new Date().toISOString(), rota, status: res.status };
     throw erroDe(mensagemAmigavel(corpo, res.status), res.status, corpo);
   }
 

@@ -13,12 +13,15 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { cores } from '@/nucleo/tema';
 import { SessaoProvider } from '@/nucleo/sessao';
+import { PortaoDeVersao } from '@/componentes/PortaoDeVersao';
+import { useNavegacaoPorPush } from '@/nucleo/ganchos-de-push';
+import { configurarApresentacao } from '@/nucleo/push';
 
 /**
  * Cache que sobrevive ao fechamento do app.
  *
  * É o que cumpre a promessa de leitura offline: quem já abriu a escala continua vendo, sem
- * sinal, na próxima abertura. `gcTime` de 7 dias porque um turno de semana que vem continua
+ * sinal, na próxima abertura. `gcTime` de 7 dias porque um turno da semana que vem continua
  * valendo; `staleTime` curto porque a escala muda e queremos revalidar assim que houver rede.
  */
 const cliente = new QueryClient({
@@ -41,6 +44,10 @@ const persistidor = createAsyncStoragePersister({
   key: 'escala-facil-cache',
 });
 
+// Fora do componente: define como a notificação se comporta com o app aberto, e precisa
+// valer antes da primeira renderização.
+configurarApresentacao();
+
 export default function LayoutRaiz() {
   const [pronto, setPronto] = useState(false);
 
@@ -54,23 +61,48 @@ export default function LayoutRaiz() {
           client={cliente}
           persistOptions={{ persister: persistidor, maxAge: 7 * 24 * 60 * 60 * 1000 }}
         >
-          <SessaoProvider>
-            <StatusBar style="dark" />
-            <Stack
-              screenOptions={{
-                headerStyle: { backgroundColor: cores.fundoCartao },
-                headerTintColor: cores.texto,
-                contentStyle: { backgroundColor: cores.fundo },
-              }}
-            >
-              <Stack.Screen name="index" options={{ headerShown: false }} />
-              <Stack.Screen name="entrar" options={{ title: 'Entrar' }} />
-              <Stack.Screen name="minha-escala" options={{ title: 'Minha escala', headerBackVisible: false }} />
-              <Stack.Screen name="diagnostico" options={{ title: 'Diagnóstico' }} />
-            </Stack>
-          </SessaoProvider>
+          <PortaoDeVersao>
+            <SessaoProvider>
+              <StatusBar style="dark" />
+              <Navegacao />
+            </SessaoProvider>
+          </PortaoDeVersao>
         </PersistQueryClientProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
+  );
+}
+
+/**
+ * Precisa ser um componente separado: `useNavegacaoPorPush` chama `useSessao`, e um hook não
+ * enxerga um provedor declarado no mesmo componente que o renderiza.
+ */
+function Navegacao() {
+  useNavegacaoPorPush();
+
+  return (
+    <Stack
+      screenOptions={{
+        headerStyle: { backgroundColor: cores.fundoCartao },
+        headerTintColor: cores.texto,
+        contentStyle: { backgroundColor: cores.fundo },
+      }}
+    >
+      <Stack.Screen name="index" options={{ headerShown: false }} />
+      <Stack.Screen name="entrar" options={{ title: 'Entrar' }} />
+      <Stack.Screen name="claim-invite" options={{ title: 'Convite' }} />
+      <Stack.Screen
+        name="minha-escala"
+        options={{ title: 'Minha escala', headerBackVisible: false }}
+      />
+      <Stack.Screen name="trocas" options={{ title: 'Trocas' }} />
+      <Stack.Screen name="afastamentos" options={{ title: 'Afastamentos' }} />
+      <Stack.Screen name="notificacoes" options={{ title: 'Avisos' }} />
+      <Stack.Screen name="solicitacoes" options={{ title: 'Solicitações' }} />
+      <Stack.Screen name="perfil" options={{ title: 'Perfil' }} />
+      <Stack.Screen name="avisos" options={{ title: 'Avisos no celular' }} />
+      <Stack.Screen name="indisponivel" options={{ title: 'Acesso suspenso' }} />
+      <Stack.Screen name="diagnostico" options={{ title: 'Diagnóstico' }} />
+    </Stack>
   );
 }

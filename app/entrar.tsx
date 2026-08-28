@@ -2,7 +2,7 @@ import { useState } from 'react';
 import {
   ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View, KeyboardAvoidingView, Platform,
 } from 'react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 
 import { useSessao } from '@/nucleo/sessao';
 import { cores, espacamento, raio, tipografia, TOQUE_MINIMO } from '@/nucleo/tema';
@@ -10,6 +10,10 @@ import type { ErroApi } from '@/nucleo/api';
 
 export default function Entrar() {
   const { entrar } = useSessao();
+
+  // Quem chegou por um convite volta para o resgate depois de entrar. Sem isto, o link
+  // levaria ao login e a pessoa acabaria na escala sem nunca ter entrado na organizacao.
+  const { convite } = useLocalSearchParams<{ convite?: string }>();
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [erro, setErro] = useState<string | null>(null);
@@ -20,7 +24,8 @@ export default function Entrar() {
     setEnviando(true);
     try {
       await entrar(email.trim(), senha);
-      router.replace('/minha-escala');
+      if (convite) router.replace({ pathname: '/claim-invite', params: { token: convite } });
+      else router.replace('/minha-escala');
     } catch (e) {
       setErro((e as ErroApi)?.message || 'Não foi possível entrar.');
     } finally {

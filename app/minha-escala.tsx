@@ -1,144 +1,178 @@
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useQuery } from '@tanstack/react-query';
+import { useEffect } from 'react';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 
-import { apiFetch, type ErroApi } from '@/nucleo/api';
-import { useSessao } from '@/nucleo/sessao';
+import { usePainel, useResumoNotificacoes, type Turno } from '@/nucleo/consultas';
+import { avaliarVersao } from '@/nucleo/versao';
+import { usePortaoDeVersao } from '@/nucleo/consultas';
+import { VERSAO_APP } from '@/nucleo/ambiente';
+import { registrarAparelho, situacaoDaPermissao } from '@/nucleo/push';
+import { Carregando, Erro } from '@/componentes/Estados';
+import { CartaoTurno } from '@/componentes/CartaoTurno';
 import { cores, espacamento, raio, tipografia, TOQUE_MINIMO } from '@/nucleo/tema';
 import { formatarData, formatarHora, formatarDiaDaSemana } from '@/contract/format';
 
 /**
  * Minha Escala — a tela onde o funcionário vive.
  *
- * Não é a grade do site. A grade é local × dia com oito colunas: 1080px de largura mínima,
- * três dias visíveis num aparelho de 390px. Aqui é lista por dia, que é como se lê a própria
- * escala no celular.
+ * DIVERGE do site — ver docs/divergencias-app-web.md. Lá é uma grade local × dia com oito
+ * colunas e 1080px de largura mínima; num aparelho de 390px caberiam três dias. Aqui é
+ * lista, que é como se lê a própria escala no celular.
  *
  * Consome `/users/me/dashboard`, que já devolve resumo, próximos e passados prontos — a tela
- * apresenta um agregado, não monta um.
+ * apresenta um agregado, não monta um. É o que a mantém rápida na abertura a frio.
  */
-type Turno = {
-  id: string;
-  start_timestamp: string;
-  end_timestamp: string;
-  location?: { name?: string } | null;
-  shift_model?: { name?: string } | null;
-};
-
-type Painel = {
-  next_shift: Turno | null;
-  upcoming_shifts: Turno[];
-  summary_period?: { total_shifts?: number; total_hours?: number };
-};
-
 export default function MinhaEscala() {
-  const { sair } = useSessao();
+  const painel = usePainel();
+  const resumo = useResumoNotificacoes();
 
-  const consulta = useQuery({
-    queryKey: ['me', 'dashboard'],
-    queryFn: () => apiFetch<{ data: Painel }>('/users/me/dashboard').then((r) => r.data),
-  });
+  useRegistroSilenciosoDeAparelho(!painel.isLoading && !painel.error);
 
-  if (consulta.isLoading) {
-    return (
-      <View style={estilos.centro}>
-        <ActivityIndicator size="large" color={cores.primaria} />
-      </View>
-    );
-  }
+  if (painel.isLoading) return <Carregando />;
+  if (painel.error) return <Erro erro={painel.error} aoTentarDeNovo={() => void painel.refetch()} />;
 
-  const erro = consulta.error as ErroApi | null;
-
-  // 402 é o gestor inadimplente, não o funcionário. Mensagem neutra, sem preço e sem link —
-  // ver docs/divergencias-app-web.md e a regra 3.1.3(f) da Apple.
-  if (erro?.status === 402) {
-    return (
-      <View style={estilos.centro}>
-        <Text style={estilos.aviso}>Indisponível no momento</Text>
-        <Text style={estilos.avisoDetalhe}>
-          Fale com o gestor da sua equipe para reativar o acesso.
-        </Text>
-      </View>
-    );
-  }
-
-  if (erro) {
-    return (
-      <View style={estilos.centro}>
-        <Text style={estilos.aviso}>Não foi possível carregar</Text>
-        <Text style={estilos.avisoDetalhe}>{erro.message}</Text>
-      </View>
-    );
-  }
-
-  const painel = consulta.data;
-  const proximos = painel?.upcoming_shifts ?? [];
+  const proximo = painel.data?.next_shift ?? null;
+  const proximos = painel.data?.upcoming_shifts ?? [];
+  const naoLidas = resumo.data?.personal_notifications_count ?? 0;
 
   return (
-    <ScrollView contentContainerStyle={estilos.tela}>
-      <Text style={estilos.titulo}>Minha escala</Text>
-
-      {painel?.next_shift ? (
-        <View style={estilos.destaque}>
-          <Text style={estilos.destaqueRotulo}>PRÓXIMO TURNO</Text>
-          <Text style={estilos.destaqueDia}>
-            {formatarDiaDaSemana(painel.next_shift.start_timestamp)}
-            {', '}
-            {formatarData(painel.next_shift.start_timestamp)}
-          </Text>
-          <Text style={estilos.destaqueHora}>
-            {formatarHora(painel.next_shift.start_timestamp)}
-            {' às '}
-            {formatarHora(painel.next_shift.end_timestamp)}
-          </Text>
-          <Text style={estilos.destaqueLocal}>
-            {painel.next_shift.location?.name ?? 'Local não informado'}
-          </Text>
-        </View>
-      ) : (
-        <View style={estilos.vazio}>
-          <Text style={estilos.avisoDetalhe}>Você não tem turnos agendados.</Text>
-        </View>
+    <ScrollView
+      contentContainerStyle={estilos.tela}
+      refreshControl={(
+        <RefreshControl
+          refreshing={painel.isRefetching}
+          onRefresh={() => {
+            void painel.refetch();
+            void resumo.refetch();
+          }}
+        />
       )}
+    >
+      <AvisoDeVersao />
 
-      {proximos.length > 0 && (
+      {proximo ? <ProximoTurno turno={proximo} /> : <SemTurnos />}
+
+      {proximos.length > 0 ? (
         <>
           <Text style={estilos.secao}>A seguir</Text>
-          {proximos.map((t) => (
-            <View key={t.id} style={estilos.cartao}>
-              <Text style={estilos.cartaoDia}>
-                {formatarDiaDaSemana(t.start_timestamp)}, {formatarData(t.start_timestamp)}
-              </Text>
-              <Text style={estilos.cartaoHora}>
-                {formatarHora(t.start_timestamp)} às {formatarHora(t.end_timestamp)}
-              </Text>
-              <Text style={estilos.cartaoLocal}>{t.location?.name ?? '—'}</Text>
-            </View>
-          ))}
+          {proximos.map((turno) => <CartaoTurno key={turno.id} turno={turno} />)}
         </>
-      )}
+      ) : null}
 
-      <Pressable
-        style={estilos.rodape}
-        onPress={() => router.push('/diagnostico')}
-        accessibilityRole="button"
-        accessibilityLabel="Abrir diagnóstico"
-      >
-        <Text style={estilos.rodapeTexto}>Diagnóstico</Text>
-      </Pressable>
-
-      <Pressable style={estilos.rodape} onPress={sair} accessibilityRole="button" accessibilityLabel="Sair">
-        <Text style={[estilos.rodapeTexto, { color: cores.perigo }]}>Sair</Text>
-      </Pressable>
+      <View style={estilos.atalhos}>
+        <Atalho rotulo="Trocas" destino="/trocas" />
+        <Atalho rotulo="Afastamentos" destino="/afastamentos" />
+        <Atalho rotulo="Avisos" destino="/notificacoes" contador={naoLidas} />
+        <Atalho rotulo="Perfil" destino="/perfil" />
+      </View>
     </ScrollView>
   );
 }
 
+/**
+ * Registra o aparelho para push sem pedir nada.
+ *
+ * Só age quando a permissão JÁ foi concedida — reinstalação, troca de aparelho, ou o token
+ * do Expo simplesmente girando, o que acontece sozinho. Nunca dispara o pedido do sistema:
+ * isso é da tela `/avisos`, que explica antes, porque no iOS a recusa é definitiva.
+ *
+ * Espera a escala carregar para não competir com a primeira tela pela rede — o orçamento de
+ * abertura a frio é 2s, e o registro pode esperar.
+ */
+function useRegistroSilenciosoDeAparelho(pronto: boolean) {
+  useEffect(() => {
+    if (!pronto) return;
+
+    void (async () => {
+      if (await situacaoDaPermissao() === 'concedida') await registrarAparelho();
+    })();
+  }, [pronto]);
+}
+
+/**
+ * O aviso de atualização recomendada.
+ *
+ * Faixa, não tela: `recommended` não impede nada, e transformar sugestão em obstáculo ensina
+ * a pessoa a ignorar o aviso que um dia vai importar. O bloqueio de verdade fica no
+ * `PortaoDeVersao`, sobre o app inteiro.
+ */
+function AvisoDeVersao() {
+  const portao = usePortaoDeVersao();
+  if (avaliarVersao(VERSAO_APP, portao.data) !== 'atualizacao-sugerida') return null;
+
+  return (
+    <View style={estilos.faixaVersao}>
+      <Text style={estilos.faixaVersaoTexto}>
+        {portao.data?.message || 'Uma versão mais nova do aplicativo está disponível.'}
+      </Text>
+    </View>
+  );
+}
+
+function ProximoTurno({ turno }: Readonly<{ turno: Turno }>) {
+  return (
+    <View style={estilos.destaque}>
+      <Text style={estilos.destaqueRotulo}>PRÓXIMO TURNO</Text>
+      <Text style={estilos.destaqueDia}>
+        {formatarDiaDaSemana(turno.start_timestamp)}, {formatarData(turno.start_timestamp)}
+      </Text>
+      <Text style={estilos.destaqueHora}>
+        {formatarHora(turno.start_timestamp)} às {formatarHora(turno.end_timestamp)}
+      </Text>
+      <Text style={estilos.destaqueLocal}>
+        {turno.location?.name ?? 'Local não informado'}
+      </Text>
+    </View>
+  );
+}
+
+function SemTurnos() {
+  return (
+    <View style={estilos.vazio}>
+      <Text style={estilos.vazioTexto}>Você não tem turnos agendados.</Text>
+    </View>
+  );
+}
+
+function Atalho({ rotulo, destino, contador = 0 }: Readonly<{
+  rotulo: string;
+  destino: '/trocas' | '/afastamentos' | '/notificacoes' | '/perfil';
+  contador?: number;
+}>) {
+  return (
+    <Pressable
+      style={estilos.atalho}
+      onPress={() => router.push(destino)}
+      accessibilityRole="button"
+      accessibilityLabel={contador > 0 ? `${rotulo}, ${contador} não lidos` : rotulo}
+    >
+      <Text style={estilos.atalhoTexto}>{rotulo}</Text>
+      {contador > 0 ? (
+        <View style={estilos.selo}>
+          <Text style={estilos.seloTexto}>{contador > 99 ? '99+' : contador}</Text>
+        </View>
+      ) : null}
+    </Pressable>
+  );
+}
+
 const estilos = StyleSheet.create({
-  tela: { padding: espacamento.lg, gap: espacamento.sm },
-  centro: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: espacamento.lg, gap: espacamento.sm },
-  titulo: { ...tipografia.titulo, color: cores.texto, marginBottom: espacamento.sm },
-  secao: { ...tipografia.micro, color: cores.textoSuave, textTransform: 'uppercase', marginTop: espacamento.md },
+  tela: { padding: espacamento.md, gap: espacamento.sm },
+  secao: {
+    ...tipografia.micro,
+    color: cores.textoSuave,
+    textTransform: 'uppercase',
+    marginTop: espacamento.md,
+  },
+
+  faixaVersao: {
+    backgroundColor: cores.turnoPublicado,
+    borderRadius: raio.md,
+    borderWidth: 1,
+    borderColor: cores.primaria,
+    padding: espacamento.sm,
+  },
+  faixaVersaoTexto: { ...tipografia.legenda, color: cores.texto, textAlign: 'center' },
 
   destaque: {
     backgroundColor: cores.turnoPreenchido,
@@ -148,25 +182,46 @@ const estilos = StyleSheet.create({
     borderColor: cores.sucesso,
   },
   destaqueRotulo: { ...tipografia.micro, color: cores.sucesso },
-  destaqueDia: { ...tipografia.subtitulo, color: cores.texto, marginTop: espacamento.xs, textTransform: 'capitalize' },
+  destaqueDia: {
+    ...tipografia.subtitulo,
+    color: cores.texto,
+    marginTop: espacamento.xs,
+    textTransform: 'capitalize',
+  },
   destaqueHora: { ...tipografia.titulo, color: cores.texto },
   destaqueLocal: { ...tipografia.corpo, color: cores.textoSuave },
 
-  cartao: {
-    backgroundColor: cores.fundoCartao,
+  vazio: { padding: espacamento.lg, alignItems: 'center' },
+  vazioTexto: { ...tipografia.corpo, color: cores.textoSuave, textAlign: 'center' },
+
+  atalhos: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: espacamento.sm,
+    marginTop: espacamento.lg,
+  },
+  atalho: {
+    flexGrow: 1,
+    flexBasis: '45%',
+    minHeight: TOQUE_MINIMO,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: espacamento.sm,
     borderRadius: raio.md,
-    padding: espacamento.md,
+    backgroundColor: cores.fundoCartao,
     borderWidth: 1,
     borderColor: cores.borda,
   },
-  cartaoDia: { ...tipografia.corpo, color: cores.texto, fontWeight: '600', textTransform: 'capitalize' },
-  cartaoHora: { ...tipografia.corpo, color: cores.texto },
-  cartaoLocal: { ...tipografia.legenda, color: cores.textoSuave },
-
-  vazio: { padding: espacamento.lg, alignItems: 'center' },
-  aviso: { ...tipografia.subtitulo, color: cores.texto },
-  avisoDetalhe: { ...tipografia.corpo, color: cores.textoSuave, textAlign: 'center' },
-
-  rodape: { minHeight: TOQUE_MINIMO, alignItems: 'center', justifyContent: 'center', marginTop: espacamento.sm },
-  rodapeTexto: { ...tipografia.corpo, color: cores.primaria },
+  atalhoTexto: { ...tipografia.corpo, color: cores.texto, fontWeight: '600' },
+  selo: {
+    minWidth: 22,
+    height: 22,
+    paddingHorizontal: 6,
+    borderRadius: 11,
+    backgroundColor: cores.primaria,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  seloTexto: { ...tipografia.micro, color: cores.primariaTexto, fontWeight: '700' },
 });
