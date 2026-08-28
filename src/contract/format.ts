@@ -53,9 +53,14 @@ function paraNumero(valor: unknown): number | null {
  * O `Intl` separa símbolo e número com espaço NÃO-SEPARÁVEL (U+00A0). Visualmente é igual
  * ao espaço comum, mas quebra comparação de texto e busca. Normalizamos para espaço comum:
  * o que se ganha em previsibilidade vale mais que a quebra de linha que o NBSP evita.
+ *
+ * O NBSP é escrito como `\u00A0`, nunca como o caractere literal: no editor ele é
+ * indistinguível de um espaço comum, então quem lesse acharia que a substituição não faz
+ * nada, e quem editasse poderia trocá-lo por um espaço normal sem perceber que quebrou a
+ * função. O `no-irregular-whitespace` do ESLint existe exatamente para isso.
  */
 function normalizarEspacos(texto: string): string {
-  return texto.replace(/ /g, ' ');
+  return texto.replace(/\u00A0/g, ' ');
 }
 
 /** Converte o que vier em Date, ou null se não der. Aceita Date, texto ISO e milissegundos. */
