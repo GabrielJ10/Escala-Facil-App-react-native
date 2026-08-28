@@ -1,3 +1,5 @@
+import { Platform } from 'react-native';
+
 import { API_URL, VERSAO_APP } from './ambiente';
 import { armazenamentoSeguro } from './armazenamento';
 
@@ -13,6 +15,9 @@ import { armazenamentoSeguro } from './armazenamento';
  *      devolve o refresh no corpo quando o cliente se declara app.
  *   3. Sessão perdida não redireciona para `/login` — avisa quem escuta, e a navegação
  *      decide. `window.location` não existe aqui.
+ *   4. Declara a PLATAFORMA em `X-Client-Platform`. O servidor a usa para filtrar campanhas
+ *      por sistema — sem ela, um aviso de "baixe nosso aplicativo" apareceria dentro do
+ *      próprio aplicativo. O site não manda o cabeçalho e o servidor assume `web`.
  *
  * O que NÃO diverge: o access token continua só em memória, e o refresh continua
  * single-flight. Este último é reescrito aqui e tem teste próprio, porque não vem no
@@ -105,6 +110,7 @@ export function renovarSessao(): Promise<string | null> {
           'Content-Type': 'application/json',
           'X-Client-Type': 'mobile',
           'X-App-Version': VERSAO_APP,
+          'X-Client-Platform': Platform.OS,
         },
         body: JSON.stringify({ refreshToken: refresh }),
       });
@@ -143,6 +149,7 @@ export async function apiFetch<T = unknown>(
       'Content-Type': 'application/json',
       'X-Client-Type': 'mobile',
       'X-App-Version': VERSAO_APP,
+      'X-Client-Platform': Platform.OS,
       ...(opcoes.headers as Record<string, string> | undefined),
     };
 

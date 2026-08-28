@@ -23,6 +23,16 @@ lugar certo no navegador, onde protege contra XSS.
 **Descartado:** `AsyncStorage` — é arquivo em texto claro no diretório do app; qualquer
 backup ou aparelho com root expõe a sessão.
 
+O cliente também declara a PLATAFORMA em `X-Client-Platform` (`Platform.OS`), que o site não
+manda. O servidor a usa para filtrar campanhas do fundador por sistema — sem ela, um aviso de
+"baixe nosso aplicativo" apareceria dentro do próprio aplicativo. Sem o cabeçalho o servidor
+assume `web`, que é o que o site sempre recebeu e o que uma versão do app anterior a isto
+continua recebendo.
+
+**Descartado:** deixar o servidor deduzir pelo User-Agent. Ele é livre, muda a cada versão de
+sistema, e adivinhar plataforma por string é como um filtro passa a errar em silêncio meses
+depois — sem ninguém ligar a campanha sumida à atualização do iOS.
+
 ## Cliente HTTP — o que acontece quando a sessão acaba
 
 **Onde:** `src/nucleo/api.ts`
