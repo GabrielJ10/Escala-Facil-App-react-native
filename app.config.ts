@@ -46,6 +46,10 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     orientation: 'portrait',
     userInterfaceStyle: 'automatic',
 
+    // Sem esta chave o build sai com o ícone padrão do Expo — o arquivo já estava em
+    // `assets/` e nada apontava para ele. A tela de abertura fica no plugin, abaixo.
+    icon: './assets/icon.png',
+
     ios: {
       bundleIdentifier: atual.id,
       supportsTablet: true,
@@ -55,6 +59,12 @@ export default ({ config }: ConfigContext): ExpoConfig => {
 
     android: {
       package: atual.id,
+      // O Android 13+ usa as três camadas: fundo, frente e a monocromática do tema dinâmico.
+      adaptiveIcon: {
+        foregroundImage: './assets/android-icon-foreground.png',
+        backgroundImage: './assets/android-icon-background.png',
+        monochromeImage: './assets/android-icon-monochrome.png',
+      },
       intentFilters: [
         {
           action: 'VIEW',
@@ -85,6 +95,21 @@ export default ({ config }: ConfigContext): ExpoConfig => {
        * build segue — que é o comportamento certo para quem clona o repositório e só quer
        * rodar o app.
        */
+      /**
+       * A tela de abertura. No SDK 57 ela é plugin, e não mais a chave `splash` de topo.
+       *
+       * O fundo claro nos dois temas é deliberado: a marca é a mesma do site, e o ícone de
+       * abertura é desenhado para fundo claro — inverter no escuro deixaria o logo sumido.
+       */
+      [
+        'expo-splash-screen',
+        {
+          image: './assets/splash-icon.png',
+          resizeMode: 'contain',
+          backgroundColor: '#FFFFFF',
+          imageWidth: 200,
+        },
+      ],
       [
         '@sentry/react-native/expo',
         {
