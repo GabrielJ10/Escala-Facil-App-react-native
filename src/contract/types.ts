@@ -104,6 +104,12 @@ export interface Permissions {
 export interface CustomFieldValue {
   value: unknown;
   is_sensitive: boolean;
+  /**
+   * Campo sensível cujo valor real fica cifrado no servidor e nunca chega ao navegador
+   * (`user.service.js`, que devolve `{ value: null, is_sensitive: true, masked: true }`).
+   * Quem edita precisa pular esses campos: gravá-los como string vazia apagaria o dado real.
+   */
+  masked?: boolean;
 }
 
 export interface UserListItem {

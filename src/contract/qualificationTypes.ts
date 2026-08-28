@@ -31,7 +31,10 @@ export interface QualificationBuilderSchema {
 export interface QualificationRule {
   field_key: string;
   operator: string;
-  value: any;
+  // O valor comparado muda com `value_type` do campo: texto, número, data ou lista. É
+  // `unknown` pelo mesmo motivo que `CustomFieldValue.value` em types.ts — quem lê precisa
+  // dizer o que espera.
+  value: unknown;
   mode: 'HARD' | 'SOFT';
   weight?: number;
   label?: string;
