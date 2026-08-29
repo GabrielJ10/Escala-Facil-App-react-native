@@ -1,16 +1,4 @@
 {
-  "_comentario_sentry": [
-    "SENTRY_DISABLE_AUTO_UPLOAD nos três perfis de teste, e ausente no de loja, é decisão",
-    "deliberada. O plugin do Sentry liga uma tarefa de Gradle que sobe o mapa de fontes no",
-    "build de release; sem credencial ela falha com 'An organization ID or slug is required'",
-    "e derruba o build inteiro — foi assim que o primeiro APK deste projeto morreu, aos 5",
-    "minutos de fila, por falta de uma variável de observabilidade.",
-    "",
-    "Num APK de teste isso é puro custo: ninguém vai ler pilha de produção ali. No build de",
-    "loja o upload FICA LIGADO de propósito, porque publicar sem mapa de fontes deixa o painel",
-    "do Sentry mostrando pilha empacotada, que não aponta linha nenhuma — se faltar credencial",
-    "ali, é certo o build falhar e avisar."
-  ],
   "cli": {
     "version": ">= 23.0.0",
     "appVersionSource": "remote"
