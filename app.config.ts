@@ -154,17 +154,18 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       /**
        * O vínculo com o projeto na conta Expo.
        *
-       * Quando o config é um arquivo `.json`, o `eas init` grava este id sozinho. Como aqui
-       * ele é TypeScript — precisa ser, para os três ambientes existirem —, o EAS não tem
-       * como reescrevê-lo e apenas imprime o id pedindo que alguém o coloque à mão.
+       * Fica escrito aqui, e não só no `.env`, por uma razão descoberta na prática: o
+       * `eas-cli` avalia este arquivo SEM carregar o `.env`. O `npx expo config` carrega, o
+       * que torna a diferença especialmente traiçoeira — dá para conferir a configuração,
+       * ver o id resolvido, e ainda assim o build falhar com "EAS project not configured".
        *
-       * Por isso ele vem do ambiente: rode `npx eas-cli init`, copie o id que aparecer e
-       * ponha em `EAS_PROJECT_ID` no `.env` (ou passe na hora do build). Assim o valor não
-       * fica escrito no repositório e cada pessoa aponta para o projeto que usa.
+       * Não é segredo: o id aparece na URL do projeto e a própria documentação do Expo manda
+       * colocá-lo no app config. O `.env` continua valendo como sobrescrita, para quem
+       * precise apontar para outro projeto sem editar arquivo versionado.
        */
-      eas: process.env.EAS_PROJECT_ID
-        ? { projectId: process.env.EAS_PROJECT_ID }
-        : undefined,
+      eas: {
+        projectId: process.env.EAS_PROJECT_ID || '1f619ab9-5bea-4e57-a318-c43753da8f79',
+      },
     },
   };
 };

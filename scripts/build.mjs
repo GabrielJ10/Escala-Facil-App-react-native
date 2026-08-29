@@ -256,17 +256,22 @@ async function conferirApi(url, ambiente) {
 /**
  * O vínculo com o projeto na conta Expo, que num config dinâmico ninguém grava por você.
  *
- * Sem ele o `eas build` para com uma mensagem sobre `extra.eas.projectId` que não diz o que
- * fazer num `app.config.ts`. Aqui vira instrução: rode `eas init`, guarde o id no ambiente.
+ * Hoje o id tem valor padrão no `app.config.ts`, então esta conferência quase nunca dispara.
+ * Ela fica porque a falha correspondente é péssima de diagnosticar: o `eas build` para com
+ * "EAS project not configured" e não diz o que fazer num arquivo TypeScript.
+ *
+ * Cuidado com o atalho de guardar o id só no `.env`: o `npx expo config` carrega o `.env` e
+ * o `eas-cli` NÃO carrega. Dá para conferir a configuração, ver o id ali, e ainda assim o
+ * build falhar — foi exatamente o que aconteceu na primeira tentativa deste projeto.
  */
 function conferirVinculoEas(config) {
   if (config?.extra?.eas?.projectId) return;
 
   erros.push(
-    'O projeto ainda não está vinculado a uma conta Expo.\n'
-    + '    Rode `npx eas-cli init`, copie o id que ele imprimir, e guarde em\n'
-    + '    EAS_PROJECT_ID (no .env ou no ambiente). O `app.config.ts` é TypeScript,\n'
-    + '    então o EAS não consegue gravar esse id sozinho — só o imprime.',
+    'O projeto não está vinculado a uma conta Expo.\n'
+    + '    Rode `npx eas-cli init`, copie o id impresso e ponha em `extra.eas.projectId`\n'
+    + '    no app.config.ts. Só no .env não basta: o eas-cli não lê .env ao avaliar o\n'
+    + '    config, mesmo que o `npx expo config` mostre o id resolvido.',
   );
 }
 
