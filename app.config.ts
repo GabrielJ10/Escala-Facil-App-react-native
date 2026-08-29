@@ -97,14 +97,6 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       'expo-router',
       'expo-secure-store',
       /**
-       * O plugin do Sentry existe para uma coisa só: subir o mapa de fontes durante o
-       * `eas build`. Sem ele o painel mostra pilha empacotada, que não aponta linha nenhuma.
-       *
-       * `org` e `project` saem do ambiente do build. Ausentes, o plugin não sobe nada e o
-       * build segue — que é o comportamento certo para quem clona o repositório e só quer
-       * rodar o app.
-       */
-      /**
        * A tela de abertura. No SDK 57 ela é plugin, e não mais a chave `splash` de topo.
        *
        * O fundo claro nos dois temas é deliberado: a marca é a mesma do site, e o ícone de
@@ -119,11 +111,28 @@ export default ({ config }: ConfigContext): ExpoConfig => {
           imageWidth: 200,
         },
       ],
+
+      /**
+       * O plugin do Sentry existe para uma coisa só: subir o mapa de fontes durante o
+       * `eas build`. Sem ele o painel mostra pilha empacotada, que não aponta linha nenhuma.
+       *
+       * **O que estava escrito aqui antes era falso**, e um build inteiro morreu provando:
+       * dizia que, sem `org` e `project`, o plugin não subia nada e o build seguia. Não é o
+       * que acontece. A tarefa de Gradle é ligada de qualquer jeito e falha com "An
+       * organization ID or slug is required", derrubando o build aos cinco minutos de fila.
+       *
+       * Duas coisas mudaram por causa disso. As chaves só entram quando as variáveis existem
+       * — o plugin usa `hasOwnProperty`, então `organization: undefined` conta como
+       * configurado e ele nem avisa. E quem de fato desliga o upload é
+       * `SENTRY_DISABLE_AUTO_UPLOAD=true`, definido por perfil no `eas.json`: ligado nos
+       * builds de teste, desligado no de loja, onde faltar mapa de fontes é problema de
+       * verdade.
+       */
       [
         '@sentry/react-native/expo',
         {
-          organization: process.env.SENTRY_ORG,
-          project: process.env.SENTRY_PROJECT,
+          ...(process.env.SENTRY_ORG ? { organization: process.env.SENTRY_ORG } : {}),
+          ...(process.env.SENTRY_PROJECT ? { project: process.env.SENTRY_PROJECT } : {}),
         },
       ],
       [
