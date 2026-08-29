@@ -25,6 +25,7 @@
  */
 import { spawn, spawnSync } from 'node:child_process';
 import { lookup } from 'node:dns/promises';
+import { readFileSync } from 'node:fs';
 
 /**
  * Duas formas de chamar ferramenta externa, e as duas evitam o mesmo problema.
@@ -275,6 +276,44 @@ function conferirVinculoEas(config) {
   );
 }
 
+/**
+ * O upload de mapa de fontes do Sentry, que já derrubou um build inteiro deste projeto.
+ *
+ * O plugin liga uma tarefa de Gradle que sobe os mapas em todo build de release. Sem
+ * credencial ela falha com "An organization ID or slug is required" e leva o build junto —
+ * cinco minutos de fila perdidos por uma variável de observabilidade ausente.
+ *
+ * `SENTRY_DISABLE_AUTO_UPLOAD=true` no perfil desliga a tarefa (`sentry.gradle`, o `onlyIf`
+ * da linha 93). Quando o perfil NÃO desliga, é porque o upload é desejado ali — e então
+ * faltar credencial é motivo de aviso antes de entrar na fila.
+ */
+function conferirSentry(nomeDoPerfil) {
+  let easJson;
+  try {
+    easJson = JSON.parse(readFileSync('eas.json', 'utf8'));
+  } catch {
+    avisos.push('Não consegui ler o eas.json para conferir a configuração do Sentry.');
+    return;
+  }
+
+  const env = easJson?.build?.[nomeDoPerfil]?.env ?? {};
+  if (String(env.SENTRY_DISABLE_AUTO_UPLOAD) === 'true') return;
+
+  // O token costuma viver como segredo no EAS, que não dá para conferir daqui — por isso
+  // aviso, e não impedimento: o build pode estar correto e a checagem, cega.
+  const faltando = ['SENTRY_ORG', 'SENTRY_PROJECT', 'SENTRY_AUTH_TOKEN']
+    .filter((nome) => !process.env[nome] && !env[nome]);
+
+  if (faltando.length === 0) return;
+
+  avisos.push(
+    `O perfil "${nomeDoPerfil}" sobe mapa de fontes para o Sentry e não vejo ${faltando.join(', ')}.\n`
+    + '    Se não estiverem como segredo no EAS, o Gradle falha em "An organization ID or\n'
+    + '    slug is required" e derruba o build. Para um build de teste, o caminho é\n'
+    + '    SENTRY_DISABLE_AUTO_UPLOAD=true no perfil, como fazem os outros três.',
+  );
+}
+
 function conferirArtefato(perfil, plataforma) {
   if (PERFIS[perfil].instalavel) return;
   if (plataforma === 'ios') return;
@@ -318,6 +357,7 @@ async function conferirTudo(opcoes, perfil) {
   const conta = opcoes.local ? null : conferirLogin();
 
   conferirArtefato(opcoes.perfil, opcoes.plataforma);
+  conferirSentry(opcoes.perfil);
   if (!opcoes.local) conferirVinculoEas(config);
   if (opcoes.local) conferirFerramentasLocais();
 

@@ -48,6 +48,23 @@ Doze entradas novas em [`docs/divergencias-app-web.md`](docs/divergencias-app-we
 
 ### Adicionado
 
+- **O Sentry não derruba mais o build por falta de credencial.** Descoberto do jeito caro: o
+  primeiro APK deste projeto morreu aos cinco minutos de fila com `error: An organization ID
+  or slug is required`, numa tarefa de Gradle que sobe mapa de fontes — nada a ver com o app.
+
+  O comentário que estava no `app.config.ts` afirmava o contrário, que sem `org` e `project`
+  o plugin não subia nada e o build seguia. Duas coisas estavam erradas: as chaves eram
+  passadas sempre (`organization: undefined`, e o plugin decide por `hasOwnProperty`, então
+  se considerava configurado), e faltava o desligamento de verdade, que é
+  `SENTRY_DISABLE_AUTO_UPLOAD=true` — lido em `sentry.gradle:11` e aplicado como `onlyIf` na
+  linha 93, exatamente a tarefa que falhou.
+
+  Agora está por perfil no `eas.json`: **ligado nos três de teste, ausente no de loja de
+  propósito**. Publicar sem mapa de fontes deixa o painel do Sentry mostrando pilha
+  empacotada, que não aponta linha nenhuma — ali é certo o build falhar e avisar. E o
+  `npm run build` passou a conferir isso antes da fila: silencioso quando o perfil desliga o
+  upload, avisando quando ele não desliga e as credenciais não aparecem.
+
 - **`npm run build` — um handler para gerar builds com parâmetros.** O `eas build` sozinho
   já monta o app; o script existe pelo que ele não faz, que é avisar quando o que você pediu
   não é o que você quer. Uma build de Android leva de 10 a 40 minutos na fila gratuita, e as
