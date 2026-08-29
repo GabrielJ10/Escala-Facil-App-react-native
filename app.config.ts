@@ -141,6 +141,21 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       // Só o DSN atravessa para o aparelho — o token de upload do mapa de fontes fica no
       // ambiente do build e nunca entra no pacote.
       sentryDsn: process.env.SENTRY_DSN || null,
+
+      /**
+       * O vínculo com o projeto na conta Expo.
+       *
+       * Quando o config é um arquivo `.json`, o `eas init` grava este id sozinho. Como aqui
+       * ele é TypeScript — precisa ser, para os três ambientes existirem —, o EAS não tem
+       * como reescrevê-lo e apenas imprime o id pedindo que alguém o coloque à mão.
+       *
+       * Por isso ele vem do ambiente: rode `npx eas-cli init`, copie o id que aparecer e
+       * ponha em `EAS_PROJECT_ID` no `.env` (ou passe na hora do build). Assim o valor não
+       * fica escrito no repositório e cada pessoa aponta para o projeto que usa.
+       */
+      eas: process.env.EAS_PROJECT_ID
+        ? { projectId: process.env.EAS_PROJECT_ID }
+        : undefined,
     },
   };
 };

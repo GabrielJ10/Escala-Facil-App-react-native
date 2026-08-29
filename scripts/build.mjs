@@ -251,6 +251,23 @@ async function conferirApi(url, ambiente) {
   }
 }
 
+/**
+ * O vínculo com o projeto na conta Expo, que num config dinâmico ninguém grava por você.
+ *
+ * Sem ele o `eas build` para com uma mensagem sobre `extra.eas.projectId` que não diz o que
+ * fazer num `app.config.ts`. Aqui vira instrução: rode `eas init`, guarde o id no ambiente.
+ */
+function conferirVinculoEas(config) {
+  if (config?.extra?.eas?.projectId) return;
+
+  erros.push(
+    'O projeto ainda não está vinculado a uma conta Expo.\n'
+    + '    Rode `npx eas-cli init`, copie o id que ele imprimir, e guarde em\n'
+    + '    EAS_PROJECT_ID (no .env ou no ambiente). O `app.config.ts` é TypeScript,\n'
+    + '    então o EAS não consegue gravar esse id sozinho — só o imprime.',
+  );
+}
+
 function conferirArtefato(perfil, plataforma) {
   if (PERFIS[perfil].instalavel) return;
   if (plataforma === 'ios') return;
@@ -294,6 +311,7 @@ async function conferirTudo(opcoes, perfil) {
   const conta = opcoes.local ? null : conferirLogin();
 
   conferirArtefato(opcoes.perfil, opcoes.plataforma);
+  if (!opcoes.local) conferirVinculoEas(config);
   if (opcoes.local) conferirFerramentasLocais();
 
   const apiUrl = config?.extra?.apiUrl;
