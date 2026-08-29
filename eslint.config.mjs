@@ -85,4 +85,31 @@ export default tseslint.config(
       'sonarjs/cognitive-complexity': 'off',
     },
   },
+  {
+    /**
+     * Os scripts de `scripts/` também são código, e ficavam de fora.
+     *
+     * Foi descoberto do jeito ruim: `build.mjs` nasceu com complexidade cognitiva 25 — dez
+     * acima do teto que este mesmo arquivo declara como erro — e nada acusou, porque os
+     * blocos acima só casam `.ts` e `.tsx`. Quem avisou foi o SonarLint da IDE, o que quer
+     * dizer que a CI teria deixado passar.
+     *
+     * Rodam no Node, não no React Native: os globais são outros, e não há hook nenhum.
+     */
+    files: ['scripts/**/*.mjs'],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: 'module',
+      globals: globals.node,
+    },
+    plugins: { sonarjs },
+    rules: {
+      'sonarjs/cognitive-complexity': ['error', 15],
+      'sonarjs/no-identical-conditions': 'error',
+      'sonarjs/no-invariant-returns': 'error',
+      'sonarjs/no-ignored-exceptions': 'error',
+      'sonarjs/prefer-immediate-return': 'error',
+      'no-unused-vars': ['error', { argsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' }],
+    },
+  },
 );

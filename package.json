@@ -57,7 +57,10 @@
     "check:divergencias": "node scripts/check-divergencias.mjs",
     "verificar": "npm run typecheck && npm run lint && npm run check:contract && npm run check:divergencias && npm run check:docs && npm run test",
     "check:docs": "node scripts/check-docs.mjs",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "build": "node scripts/build.mjs",
+    "build:apk": "node scripts/build.mjs --perfil producao-apk --plataforma android",
+    "build:loja": "node scripts/build.mjs --perfil production --plataforma all"
   },
   "private": true
 }

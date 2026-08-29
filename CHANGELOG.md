@@ -48,6 +48,32 @@ Doze entradas novas em [`docs/divergencias-app-web.md`](docs/divergencias-app-we
 
 ### Adicionado
 
+- **`npm run build` — um handler para gerar builds com parâmetros.** O `eas build` sozinho
+  já monta o app; o script existe pelo que ele não faz, que é avisar quando o que você pediu
+  não é o que você quer. Uma build de Android leva de 10 a 40 minutos na fila gratuita, e as
+  três formas mais comuns de perder esse tempo são silenciosas:
+
+  1. **AAB não instala no celular.** É o padrão do EAS para Android e só a Play Store abre.
+     Você espera a fila, baixa, e descobre no aparelho.
+  2. **A API do perfil pode não existir.** O `staging` aponta para `dev-api.escalafacil.app.br`,
+     que hoje não resolve no DNS — o app instala, abre e falha em toda requisição.
+  3. **`development` aponta para `10.0.2.2`**, apelido do emulador para o localhost da
+     máquina. Num celular de verdade não significa nada.
+
+  As três viram aviso ANTES da build começar. Junto com elas, a conferência de login e, com
+  `--local`, a de Java instalado.
+
+  O script não repete o mapeamento de ambiente: pergunta ao `expo config`, que lê o
+  `app.config.ts`. Nome, bundle ID e URL da API mostrados são exatamente os que vão para
+  dentro do binário, e mexer no config não deixa o script mentindo.
+
+  `--simular` roda tudo e mostra o comando sem construir. Atalhos: `build:apk` e `build:loja`.
+
+- **ESLint passou a cobrir `scripts/*.mjs`.** Descoberto do jeito ruim: o `build.mjs` nasceu
+  com complexidade cognitiva 25 — dez acima do teto que a própria config declara como erro —
+  e nada acusou, porque os blocos só casavam `.ts` e `.tsx`. Quem avisou foi o SonarLint da
+  IDE, ou seja, a CI teria deixado passar.
+
 - **ESLint neste repositório, que não tinha nenhum.** O backend tem ESLint com SonarJS, o
   site tem as regras de hook — este repo não tinha nada, e é o que mais precisa das duas
   coisas: quase toda tela aqui é composição de hooks, e um array de dependências errado num
