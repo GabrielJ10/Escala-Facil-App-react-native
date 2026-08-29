@@ -41,6 +41,15 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     ...config,
     name: atual.nome,
     slug: 'escala-facil',
+
+    /**
+     * A conta dona do projeto no Expo.
+     *
+     * É uma organização, e não a conta pessoal de quem builda. Sem este campo o Expo
+     * "assume o usuário atual" — o que funciona para quem criou o projeto e falha para
+     * qualquer outra pessoa do time, com um erro que não explica o motivo.
+     */
+    owner: 'escalafacils-team',
     scheme: 'escalafacil',
     version: '0.1.0',
     orientation: 'portrait',

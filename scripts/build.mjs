@@ -199,9 +199,11 @@ function lerConfigResolvida(ambiente, apiSobrescrita) {
 }
 
 function conferirLogin() {
-  const saida = spawnSync(NPX, ['eas-cli', 'whoami'], {
+  // Comando como string única, e não array + shell: é a forma que o Node documenta para
+  // shell, e a única que não dispara o aviso de argumentos concatenados sem escape.
+  const saida = spawnSync(`${NPX} eas-cli whoami`, {
     encoding: 'utf8',
-    shell: process.platform === 'win32',
+    shell: true,
   });
 
   const texto = `${saida.stdout || ''}${saida.stderr || ''}`;
@@ -361,17 +363,27 @@ function montarArgumentos(opcoes) {
   return args;
 }
 
+/**
+ * Os argumentos como uma linha só — a mesma que é executada e a que é impressa.
+ *
+ * Vale para os dois usos de propósito: a linha mostrada na tela precisa ser copiável e
+ * rodar igual. Só a mensagem é texto livre, e ela passou por `validarMensagem` — sem aspas,
+ * `$`, crase ou separador —, então as aspas duplas aqui não têm o que escapar.
+ */
+function paraLinhaDeComando(args) {
+  return args.map((arg) => (arg.includes(' ') ? `"${arg}"` : arg)).join(' ');
+}
+
 function construir(opcoes, perfil, args) {
   console.log('\n── Construindo ────────────────────────────────────────────────\n');
 
   const env = { ...process.env, APP_ENV: perfil.ambiente };
   if (opcoes.api) env.API_URL = opcoes.api;
 
-  const processo = spawn(NPX, args, {
+  const processo = spawn(`${NPX} ${paraLinhaDeComando(args)}`, {
     stdio: 'inherit',
     env,
-    // Ver a nota em NPX: inevitável no Windows, e por isso a mensagem é validada na entrada.
-    shell: process.platform === 'win32',
+    shell: true,
   });
 
   processo.on('exit', (codigo) => {
@@ -410,7 +422,7 @@ async function principal() {
   relatarAchados();
 
   const args = montarArgumentos(opcoes);
-  console.log(`\n  comando        npx ${args.join(' ')}`);
+  console.log(`\n  comando        npx ${paraLinhaDeComando(args)}`);
   if (opcoes.api) console.log(`  API_URL        ${opcoes.api}`);
 
   if (opcoes.simular) {

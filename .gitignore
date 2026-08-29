@@ -11,3 +11,5 @@ web-build/
 /android
 
 .env*.local
+
+.env
