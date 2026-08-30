@@ -12,7 +12,10 @@ export default defineConfig({
   test: {
     environment: 'node',
     globals: true,
-    include: ['src/**/*.{test,spec}.{ts,tsx}'],
+    // Só `.ts`: teste de tela é `.tsx` e roda no Jest, com o preset `jest-expo` — que é o
+    // caminho que a documentação do SDK 57 indica e o único que simula a parte nativa. A
+    // divisão por extensão evita os dois runners colidirem no mesmo arquivo.
+    include: ['src/**/*.{test,spec}.ts'],
   },
   resolve: {
     alias: { '@': path.resolve(__dirname, './src') },

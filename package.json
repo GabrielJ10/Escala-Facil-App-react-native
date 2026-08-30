@@ -37,11 +37,15 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@testing-library/react-native": "^14.0.1",
+    "@types/jest": "29.5.14",
     "@types/react": "~19.2.2",
     "eslint": "^10.9.1",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-sonarjs": "^4.2.0",
     "globals": "^17.11.0",
+    "jest": "~29.7.0",
+    "jest-expo": "~57.0.5",
     "typescript": "~6.0.3",
     "typescript-eslint": "^8.68.0",
     "vitest": "^4.1.11"
@@ -56,13 +60,15 @@
     "typecheck": "tsc --noEmit",
     "check:contract": "node scripts/check-contract.mjs",
     "check:divergencias": "node scripts/check-divergencias.mjs",
-    "verificar": "npm run typecheck && npm run lint && npm run check:contract && npm run check:divergencias && npm run check:docs && npm run test",
+    "verificar": "npm run typecheck && npm run lint && npm run check:contract && npm run check:divergencias && npm run check:docs && npm run test:tudo",
     "check:docs": "node scripts/check-docs.mjs",
     "lint": "eslint .",
     "build": "node scripts/build.mjs",
     "build:apk": "node scripts/build.mjs --perfil producao-apk --plataforma android",
     "build:loja": "node scripts/build.mjs --perfil production --plataforma all",
-    "medir-apk": "node scripts/medir-apk.mjs"
+    "medir-apk": "node scripts/medir-apk.mjs",
+    "test:telas": "jest",
+    "test:tudo": "npm run test && npm run test:telas"
   },
   "private": true
 }
