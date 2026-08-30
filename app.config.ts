@@ -96,6 +96,37 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     plugins: [
       'expo-router',
       'expo-secure-store',
+
+      /**
+       * Quais arquiteturas de CPU entram no binário.
+       *
+       * O primeiro APK deste projeto saiu com 101 MB, e 75 deles eram bibliotecas nativas —
+       * o mesmo código compilado quatro vezes, uma por arquitetura. Medido no artefato:
+       *
+       *     x86          20,9 MB    só emulador
+       *     x86_64       20,5 MB    só emulador
+       *     arm64-v8a    20,1 MB    todo celular moderno
+       *     armeabi-v7a  13,8 MB    celulares até ~2014
+       *
+       * Ou seja: 41 MB de um APK feito para instalar num celular eram para arquiteturas que
+       * celular nenhum usa.
+       *
+       * A lista vem do perfil (`ANDROID_ARCHS` no eas.json) e não daqui, porque a resposta
+       * certa muda com o formato. **No AAB da loja o padrão é o certo**: a Play divide o
+       * pacote por aparelho, cada pessoa baixa só a sua arquitetura, e incluir x86_64 é o que
+       * permite instalar em Chromebook sem custar um byte a mais para quem está no celular.
+       * O desperdício só existe no APK universal, que carrega tudo junto.
+       */
+      [
+        'expo-build-properties',
+        {
+          android: {
+            buildArchs: process.env.ANDROID_ARCHS
+              ? process.env.ANDROID_ARCHS.split(',').map((a) => a.trim()).filter(Boolean)
+              : ['armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64'],
+          },
+        },
+      ],
       /**
        * A tela de abertura. No SDK 57 ela é plugin, e não mais a chave `splash` de topo.
        *
