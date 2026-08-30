@@ -61,7 +61,8 @@
     "lint": "eslint .",
     "build": "node scripts/build.mjs",
     "build:apk": "node scripts/build.mjs --perfil producao-apk --plataforma android",
-    "build:loja": "node scripts/build.mjs --perfil production --plataforma all"
+    "build:loja": "node scripts/build.mjs --perfil production --plataforma all",
+    "medir-apk": "node scripts/medir-apk.mjs"
   },
   "private": true
 }
