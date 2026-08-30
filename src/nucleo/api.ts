@@ -2,6 +2,7 @@ import { Platform } from 'react-native';
 
 import { API_URL, VERSAO_APP } from './ambiente';
 import { armazenamentoSeguro } from './armazenamento';
+import { estaOnline, erroSemRede } from './rede';
 
 /**
  * Cliente HTTP do aplicativo.
@@ -140,10 +141,34 @@ export function renovarSessao(): Promise<string | null> {
 
 const ROTAS_SEM_RENOVACAO = ['/auth/login', '/auth/register', '/auth/refresh', '/auth/logout'];
 
+/**
+ * Métodos que mudam alguma coisa no servidor.
+ *
+ * A distinção existe por causa da promessa do produto: leitura funciona sem rede, servida do
+ * cache; ação exige conexão. Uma leitura offline pode ser tentada à toa — o pior que acontece
+ * é falhar e o cache continuar valendo. Uma ação, não: quem toca em "aceitar troca" precisa
+ * saber na hora que o pedido não saiu.
+ */
+const METODOS_QUE_ESCREVEM = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+
 export async function apiFetch<T = unknown>(
   rota: string,
   opcoes: RequestInit = {},
 ): Promise<T> {
+  const metodo = String(opcoes.method || 'GET').toUpperCase();
+
+  /**
+   * Recusar antes de tentar, e só para quem escreve.
+   *
+   * Sem isto, a ação offline vira alguns segundos de tela pensando seguidos de um erro
+   * genérico — e a pessoa fica sem saber se o pedido chegou. A recusa imediata diz o que
+   * houve e o que fazer, e não deixa dúvida sobre o que aconteceu do outro lado: nada.
+   */
+  if (METODOS_QUE_ESCREVEM.has(metodo) && !estaOnline()) {
+    ultimoErro = { quando: new Date().toISOString(), rota, status: 0 };
+    throw erroSemRede();
+  }
+
   const executar = async (): Promise<Response> => {
     const cabecalhos: Record<string, string> = {
       'Content-Type': 'application/json',

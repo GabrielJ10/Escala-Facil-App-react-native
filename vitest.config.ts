@@ -12,10 +12,11 @@ export default defineConfig({
   test: {
     environment: 'node',
     globals: true,
-    // Só `.ts`: teste de tela é `.tsx` e roda no Jest, com o preset `jest-expo` — que é o
-    // caminho que a documentação do SDK 57 indica e o único que simula a parte nativa. A
-    // divisão por extensão evita os dois runners colidirem no mesmo arquivo.
+    // O Vitest roda o que é PURO. O que precisa do runtime do aplicativo — telas, e módulos
+    // que alcancem `react-native` ou `expo-*` — fica no Jest com o preset `jest-expo`, que é
+    // quem simula a parte nativa. Ver jest.config.js.
     include: ['src/**/*.{test,spec}.ts'],
+    exclude: ['**/node_modules/**', '**/__testes-nativos__/**'],
   },
   resolve: {
     alias: { '@': path.resolve(__dirname, './src') },

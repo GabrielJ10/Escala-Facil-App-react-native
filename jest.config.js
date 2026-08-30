@@ -19,9 +19,15 @@
 module.exports = {
   preset: 'jest-expo',
 
-  // Só `.tsx`. O `.ts` é território do Vitest, e sobrepor os dois faria cada teste do
-  // contrato rodar duas vezes, com dois resultados possíveis para a mesma verdade.
-  testMatch: ['**/__tests__/**/*.test.tsx', '**/*.test.tsx'],
+  // Duas famílias, e as duas pelo mesmo motivo: precisam do runtime do aplicativo.
+  //
+  //   - `.test.tsx` — telas, que renderizam componentes React Native.
+  //   - `__testes-nativos__/*.test.ts` — módulos que não são telas mas alcançam `react-native`
+  //     ou `expo-*`. `api.ts` é o caso: as regras dele são puras, mas ele importa
+  //     `expo-constants` por baixo, e o Vitest não consegue carregar isso.
+  //
+  // O Vitest exclui a mesma pasta, então nenhum arquivo roda duas vezes.
+  testMatch: ['**/*.test.tsx', '**/__testes-nativos__/**/*.test.ts'],
 
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',

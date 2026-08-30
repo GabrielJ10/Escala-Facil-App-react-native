@@ -57,8 +57,15 @@ export function mensagemDeErro(erro: unknown): MensagemDeErro {
     };
   }
 
-  // Erro sem status é falha de rede: o fetch nem chegou a receber resposta.
-  if (status === undefined) {
+  /**
+   * Dois status significam "não houve resposta", e os dois são falha de rede.
+   *
+   * `undefined` é o `fetch` que estourou sozinho — tentou e não voltou. `0` é a recusa que o
+   * próprio app fez, antes de tentar, por saber que está offline (ver `rede.ts`). Para quem
+   * lê a tela é a mesma situação e a mesma saída; a diferença só interessa ao diagnóstico,
+   * onde `0` distingue "recusamos" de "o servidor não respondeu".
+   */
+  if (status === undefined || status === 0) {
     return {
       tipo: 'rede',
       titulo: 'Sem conexão',

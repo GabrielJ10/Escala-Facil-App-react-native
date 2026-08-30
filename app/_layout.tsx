@@ -24,6 +24,7 @@ import { PortaoDeVersao } from '@/componentes/PortaoDeVersao';
 import { ComunicadoDoFundador } from '@/componentes/ComunicadoDoFundador';
 import { useNavegacaoPorPush } from '@/nucleo/ganchos-de-push';
 import { configurarApresentacao } from '@/nucleo/push';
+import { observarRede } from '@/nucleo/rede-do-sistema';
 
 /**
  * Cache que sobrevive ao fechamento do app.
@@ -55,6 +56,16 @@ const persistidor = createAsyncStoragePersister({
 // Fora do componente: define como a notificação se comporta com o app aberto, e precisa
 // valer antes da primeira renderização.
 configurarApresentacao();
+
+/**
+ * O estado da rede alimenta o TanStack Query desde o arranque.
+ *
+ * Fora do componente, e sem desinscrição, de propósito: a assinatura precisa durar o
+ * aplicativo inteiro. Amarrá-la a um efeito faria a informação sumir num remount do layout
+ * raiz, e o app voltaria a se achar online estando sem sinal — que é o defeito que este
+ * módulo existe para corrigir.
+ */
+observarRede();
 
 function LayoutRaiz() {
   return (

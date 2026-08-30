@@ -48,6 +48,31 @@ Doze entradas novas em [`docs/divergencias-app-web.md`](docs/divergencias-app-we
 
 ### Adicionado
 
+- **Detecção de rede — a promessa "ação exige conexão" agora existe de verdade.** Não havia
+  `NetInfo` nem `onlineManager`: o TanStack Query não sabia que estava offline, então
+  disparava a requisição, esperava o `fetch` estourar sozinho e mostrava erro genérico. A
+  diferença entre isso e uma recusa imediata não é estética — quem toca em "aceitar troca" e
+  vê a tela pensar não sabe se o pedido foi enviado.
+
+  `expo-network` alimenta o `onlineManager`, e `apiFetch` recusa antes de tentar — **só para
+  quem escreve**. Leitura continua sendo tentada, porque é disso que o cache depende, e é a
+  outra metade do fluxo 02 do plano.
+
+  Duas decisões que merecem estar escritas: a pergunta é `isInternetReachable` e não
+  `isConnected`, porque o wi-fi de café com portal de login responde `true` na segunda e não
+  serve para nada; e estado indefinido conta como **online**, porque o instante em que o
+  sistema ainda não decidiu é logo depois de abrir o app — justamente quando as pessoas agem.
+
+- **Teste de tela, a camada que faltava.** As 17 telas somavam 3.302 linhas sem um único
+  teste. Agora existe `jest-expo` com `@testing-library/react-native`, e a primeira tela
+  coberta é `indisponivel` — a que reprova na App Store se alguém puser um botão de assinar
+  nela.
+
+- **O limite entre os dois runners ficou explícito.** Vitest roda o que é puro; Jest roda o
+  que precisa do runtime do aplicativo, marcado por `.test.tsx` (telas) ou pela pasta
+  `__testes-nativos__` (módulos que alcançam `react-native` ou `expo-*`). O contrato
+  continua inteiro no Vitest, conferido byte a byte com o site.
+
 - **O Sentry não derruba mais o build por falta de credencial.** Descoberto do jeito caro: o
   primeiro APK deste projeto morreu aos cinco minutos de fila com `error: An organization ID
   or slug is required`, numa tarefa de Gradle que sobe mapa de fontes — nada a ver com o app.
