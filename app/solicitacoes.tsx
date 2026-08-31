@@ -8,6 +8,7 @@ import {
 } from '@/nucleo/consultas';
 import { rotuloDaSituacaoDaTroca } from '@/nucleo/apresentacao';
 import { Carregando, Erro, Vazio } from '@/componentes/Estados';
+import { CarregarMais } from '@/componentes/CarregarMais';
 import { usePodeVer } from '@/nucleo/sessao';
 import { cores, espacamento, raio, tipografia } from '@/nucleo/tema';
 import { formatarData, formatarHora, formatarDiaDaSemana } from '@/contract/format';
@@ -84,10 +85,20 @@ export default function Solicitacoes() {
         <Vazio titulo="Nada parado" detalhe="Nenhuma solicitação esperando decisão." />
       ) : null}
 
+      {/*
+        Cada seção carrega a própria continuação. São duas listas na mesma rolagem, então
+        nenhuma delas pode dizer sozinha "cheguei ao fim" — daí o botão, e não o
+        `onEndReached` que `trocas` e `notificações` usam.
+      */}
       {listaDeTrocas.length > 0 ? (
         <>
           <Text style={estilos.secao}>Trocas de turno</Text>
           {listaDeTrocas.map((troca) => <ItemDeTroca key={troca.id} troca={troca} />)}
+          <CarregarMais
+            temMais={trocas.temMais}
+            carregando={trocas.carregandoMais}
+            aoTocar={trocas.carregarMais}
+          />
         </>
       ) : null}
 
@@ -97,6 +108,11 @@ export default function Solicitacoes() {
           {listaDeAfastamentos.map((pedido) => (
             <ItemDeAfastamento key={pedido.id} pedido={pedido} />
           ))}
+          <CarregarMais
+            temMais={afastamentos.temMais}
+            carregando={afastamentos.carregandoMais}
+            aoTocar={afastamentos.carregarMais}
+          />
         </>
       ) : null}
 

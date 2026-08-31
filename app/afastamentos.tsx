@@ -20,6 +20,7 @@ import {
 } from '@/nucleo/consultas';
 import { rotuloDaSituacaoDoAfastamento, validarPedidoDeAfastamento } from '@/nucleo/apresentacao';
 import { Carregando, Erro, FaixaDeErro, Vazio } from '@/componentes/Estados';
+import { CarregarMais } from '@/componentes/CarregarMais';
 import { cores, espacamento, raio, tipografia, TOQUE_MINIMO } from '@/nucleo/tema';
 import { formatarData } from '@/contract/format';
 
@@ -111,7 +112,16 @@ function ListaDePedidos({ consulta }: Readonly<{ consulta: ConsultaDeLista }>) {
     return <Vazio titulo="Nenhum pedido aqui" detalhe="Nada com esta situação no momento." />;
   }
 
-  return <>{itens.map((pedido) => <CartaoPedido key={pedido.id} pedido={pedido} />)}</>;
+  return (
+    <>
+      {itens.map((pedido) => <CartaoPedido key={pedido.id} pedido={pedido} />)}
+      <CarregarMais
+        temMais={consulta.temMais}
+        carregando={consulta.carregandoMais}
+        aoTocar={consulta.carregarMais}
+      />
+    </>
+  );
 }
 
 function CartaoPedido({ pedido }: Readonly<{ pedido: Afastamento }>) {

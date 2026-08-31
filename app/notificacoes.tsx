@@ -1,4 +1,4 @@
-import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 
 import {
@@ -10,6 +10,7 @@ import {
 import { contarNaoLidas, naoFoiLida } from '@/nucleo/apresentacao';
 import { ehDestinoDeCobranca, rotaDaNotificacao } from '@/nucleo/rotas-do-push';
 import { Carregando, Erro, Vazio } from '@/componentes/Estados';
+import { RodapeDaLista } from '@/componentes/RodapeDaLista';
 import { cores, espacamento, raio, tipografia, TOQUE_MINIMO } from '@/nucleo/tema';
 import { formatarDataHora } from '@/contract/format';
 
@@ -63,27 +64,34 @@ export default function Notificacoes() {
         </Pressable>
       ) : null}
 
-      <ScrollView
+      {/*
+        A lista pagina: `/notifications` devolve 20 por página, e antes o app lia só a
+        primeira. Numa conta com movimento, o aviso de duas semanas atrás simplesmente não
+        existia — sem nada na tela sugerindo que houvesse mais.
+      */}
+      <FlatList
+        data={itens}
+        keyExtractor={(notificacao) => notificacao.id}
         contentContainerStyle={estilos.lista}
         refreshControl={(
           <RefreshControl refreshing={lista.isRefetching} onRefresh={() => void lista.refetch()} />
         )}
-      >
-        {itens.length === 0 ? (
+        ListEmptyComponent={lista.isLoading ? null : (
           <Vazio
             titulo="Nada por aqui"
             detalhe="Avisos sobre sua escala e suas trocas aparecem nesta tela."
           />
-        ) : null}
-
-        {itens.map((notificacao) => (
+        )}
+        ListFooterComponent={<RodapeDaLista carregando={lista.carregandoMais} />}
+        onEndReachedThreshold={0.5}
+        onEndReached={lista.carregarMais}
+        renderItem={({ item: notificacao }) => (
           <CartaoNotificacao
-            key={notificacao.id}
             notificacao={notificacao}
             aoAbrir={() => abrir(notificacao)}
           />
-        ))}
-      </ScrollView>
+        )}
+      />
     </View>
   );
 }

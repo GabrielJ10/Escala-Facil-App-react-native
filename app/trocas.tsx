@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 
 import { useTrocasParaMim, useTrocasQueEuPedi, useResponderTroca, type Troca } from '@/nucleo/consultas';
 import { podeResponderTroca, rotuloDaSituacaoDaTroca, trocaEstaAberta } from '@/nucleo/apresentacao';
 import { Carregando, Erro, FaixaDeErro, Vazio } from '@/componentes/Estados';
+import { RodapeDaLista } from '@/componentes/RodapeDaLista';
 import { useSessao } from '@/nucleo/sessao';
 import { cores, espacamento, raio, tipografia, TOQUE_MINIMO } from '@/nucleo/tema';
 import { formatarData, formatarHora, formatarDiaDaSemana } from '@/contract/format';
@@ -53,26 +54,35 @@ export default function Trocas() {
         />
       </View>
 
-      <ScrollView
+      {/*
+        FlatList e não ScrollView: a lista pagina, e é o `onEndReached` que traz a página
+        seguinte. Antes ela cortava no vigésimo item sem nada indicar que havia mais — numa
+        equipe movimentada, uma troca pendente simplesmente não aparecia.
+
+        `onEndReachedThreshold` a meia tela: o suficiente para a próxima página chegar antes
+        de a pessoa alcançar o fim, sem buscar à toa em quem só passou o dedo.
+      */}
+      <FlatList
+        data={atual.data ?? []}
+        keyExtractor={(troca) => troca.id}
         contentContainerStyle={estilos.lista}
         refreshControl={(
           <RefreshControl refreshing={atual.isRefetching} onRefresh={() => void atual.refetch()} />
         )}
-      >
-        {responder.error ? <FaixaDeErro erro={responder.error} /> : null}
-
-        {(atual.data ?? []).length === 0 ? <SemTrocas aba={aba} /> : null}
-
-        {(atual.data ?? []).map((troca) => (
+        ListHeaderComponent={responder.error ? <FaixaDeErro erro={responder.error} /> : null}
+        ListEmptyComponent={atual.isLoading ? null : <SemTrocas aba={aba} />}
+        ListFooterComponent={<RodapeDaLista carregando={atual.carregandoMais} />}
+        onEndReachedThreshold={0.5}
+        onEndReached={atual.carregarMais}
+        renderItem={({ item: troca }) => (
           <CartaoTroca
-            key={troca.id}
             troca={troca}
             podeResponder={podeResponderTroca(troca, membro?.id)}
             respondendo={responder.isPending && responder.variables?.id === troca.id}
             aoResponder={(aceitar) => responder.mutate({ id: troca.id, aceitar })}
           />
-        ))}
-      </ScrollView>
+        )}
+      />
     </View>
   );
 }

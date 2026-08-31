@@ -1,4 +1,5 @@
 import {
+  useInfiniteQuery,
   useMutation,
   useQuery,
   useQueryClient,
@@ -189,7 +190,98 @@ export type ResumoDeNotificacoes = {
 };
 
 type Envelope<T> = { data: T };
-type Listagem<T> = { data: { items: T[] } };
+
+/**
+ * O que o servidor devolve junto com a lista, e que o app ignorava.
+ *
+ * `/requests/mine`, `/absences/requests/mine` e `/notifications` têm `page_size` com padrão
+ * 20 e teto 100. O tipo antigo era só `{ data: { items } }`: o objeto `pagination` nem
+ * entrava, então a lista cortava no 21º item **em silêncio** — numa equipe movimentada, uma
+ * troca pendente simplesmente não aparecia, e nada na tela sugeria que houvesse mais.
+ */
+export type Paginacao = {
+  page: number;
+  page_size: number;
+  total: number;
+  total_pages: number;
+};
+
+type ListagemPaginada<T> = { data: { items: T[]; pagination?: Paginacao } };
+
+/**
+ * Quantos itens por página.
+ *
+ * 50 e não 100 (o teto) de propósito: no celular a primeira tela precisa chegar rápido, e
+ * quem rola até o fim de 50 itens está procurando algo específico — a segunda página chega
+ * enquanto ele rola. O orçamento de abertura a frio é 2s, e ele conta desde a primeira
+ * requisição.
+ */
+const POR_PAGINA = 50;
+
+/**
+ * Junta `?` ou `&` conforme a rota já tenha query string.
+ *
+ * Todas as rotas de lista daqui já têm parâmetro (`mine_mode`, `status`, `state`), mas
+ * depender disso seria a mesma armadilha de sempre: alguém acrescenta uma rota limpa e o
+ * `&page=1` vira parte do caminho, silenciosamente.
+ */
+export function comPagina(rota: string, pagina: number): string {
+  const juncao = rota.includes('?') ? '&' : '?';
+  return `${rota}${juncao}page=${pagina}&page_size=${POR_PAGINA}`;
+}
+
+/**
+ * Qual é a próxima página, ou `undefined` quando acabou.
+ *
+ * Exportada para teste porque erra em silêncio nas duas direções: devolver número sempre faz
+ * o app buscar páginas vazias enquanto a pessoa rolar; parar cedo demais reproduz exatamente
+ * o defeito que a paginação veio corrigir — a lista que termina sem avisar que havia mais.
+ *
+ * Rota sem `pagination` no envelope tem uma página só, que é a que veio. Buscar `page=2` de
+ * algo que não pagina devolveria a mesma lista, repetida na tela.
+ */
+export function proximaPagina(
+  // `items` entra no tipo mesmo sem ser lido: é a forma real de uma página, e sem ele o
+  // TypeScript recusa um envelope sem `pagination` — o próprio caso da rota que não pagina.
+  ultima: { data: { items?: unknown[]; pagination?: Paginacao } },
+  todas: readonly unknown[],
+): number | undefined {
+  const paginacao = ultima.data.pagination;
+  if (!paginacao) return undefined;
+  return todas.length < paginacao.total_pages ? todas.length + 1 : undefined;
+}
+
+/**
+ * A consulta paginada, do jeito que se pagina no celular: rolando.
+ *
+ * Devolve o mesmo formato das consultas simples — `data` é a lista inteira já concatenada —
+ * mais o que a tela precisa para carregar o resto ao chegar no fim. Assim a troca de
+ * `useQuery` para cá não mexe em como a tela lê os dados.
+ *
+ * A próxima página é `undefined` quando não há mais: é assim que o TanStack Query sabe parar,
+ * e é o que faz `temMais` ser verdade só quando existe algo a buscar.
+ */
+function useListaPaginada<T>(chave: readonly unknown[], rota: string, habilitado = true) {
+  const consulta = useInfiniteQuery({
+    queryKey: chave,
+    enabled: habilitado,
+    initialPageParam: 1,
+    queryFn: ({ pageParam }) => apiFetch<ListagemPaginada<T>>(comPagina(rota, pageParam as number)),
+    getNextPageParam: proximaPagina,
+    ...PADRAO,
+  });
+
+  return {
+    ...consulta,
+    data: consulta.data?.pages.flatMap((p) => p.data.items),
+    total: consulta.data?.pages[0]?.data.pagination?.total,
+    temMais: consulta.hasNextPage,
+    carregandoMais: consulta.isFetchingNextPage,
+    carregarMais: () => {
+      if (consulta.hasNextPage && !consulta.isFetchingNextPage) void consulta.fetchNextPage();
+    },
+  };
+}
 
 /**
  * Quando vale a pena tentar de novo.
@@ -256,20 +348,12 @@ export function useTurnosDoMes(mes: string, habilitado = true) {
 // ── Trocas ──────────────────────────────────────────────────────────────────
 
 export function useTrocasQueEuPedi() {
-  return useQuery({
-    queryKey: chaves.trocasQueEuPedi,
-    queryFn: () => apiFetch<Listagem<Troca>>(rotas.trocasQueEuPedi).then((r) => r.data.items),
-    ...PADRAO,
-  });
+  return useListaPaginada<Troca>(chaves.trocasQueEuPedi, rotas.trocasQueEuPedi);
 }
 
 /** As que esperam resposta minha — é a lista que tem ação. */
 export function useTrocasParaMim() {
-  return useQuery({
-    queryKey: chaves.trocasParaMim,
-    queryFn: () => apiFetch<Listagem<Troca>>(rotas.trocasParaMim).then((r) => r.data.items),
-    ...PADRAO,
-  });
+  return useListaPaginada<Troca>(chaves.trocasParaMim, rotas.trocasParaMim);
 }
 
 export type RespostaDeTroca = { id: string; aceitar: boolean };
@@ -306,12 +390,10 @@ export type SituacaoDeAfastamento =
   | 'CANCELLED';
 
 export function useAfastamentosMeus(situacao: SituacaoDeAfastamento) {
-  return useQuery({
-    queryKey: chaves.afastamentosMeus(situacao),
-    queryFn: () => apiFetch<Envelope<{ items: Afastamento[] }>>(rotas.afastamentosMeus(situacao))
-      .then((r) => r.data.items),
-    ...PADRAO,
-  });
+  return useListaPaginada<Afastamento>(
+    chaves.afastamentosMeus(situacao),
+    rotas.afastamentosMeus(situacao),
+  );
 }
 
 export type NovoAfastamento = { start_date: string; end_date: string; reason: string };
@@ -347,23 +429,15 @@ export function usePedirAfastamento() {
  * retentado e vira "sem acesso" na tela, o que assusta à toa.
  */
 export function useTrocasParaAprovar(habilitado = true) {
-  return useQuery({
-    queryKey: chaves.trocasParaAprovar,
-    queryFn: () => apiFetch<Listagem<Troca>>(rotas.trocasParaAprovar).then((r) => r.data.items),
-    enabled: habilitado,
-    ...PADRAO,
-  });
+  return useListaPaginada<Troca>(chaves.trocasParaAprovar, rotas.trocasParaAprovar, habilitado);
 }
 
 export function useAfastamentosParaAprovar(habilitado = true) {
-  return useQuery({
-    queryKey: chaves.afastamentosParaAprovar,
-    queryFn: () => apiFetch<Envelope<{ items: AfastamentoParaAprovar[] }>>(
-      rotas.afastamentosParaAprovar,
-    ).then((r) => r.data.items),
-    enabled: habilitado,
-    ...PADRAO,
-  });
+  return useListaPaginada<AfastamentoParaAprovar>(
+    chaves.afastamentosParaAprovar,
+    rotas.afastamentosParaAprovar,
+    habilitado,
+  );
 }
 
 // ── Escala do gestor ────────────────────────────────────────────────────────
@@ -567,11 +641,7 @@ export function useRegistrarEventoDeCampanha() {
 // ── Notificações ────────────────────────────────────────────────────────────
 
 export function useNotificacoes() {
-  return useQuery({
-    queryKey: chaves.notificacoes,
-    queryFn: () => apiFetch<Listagem<Notificacao>>(rotas.notificacoes).then((r) => r.data.items),
-    ...PADRAO,
-  });
+  return useListaPaginada<Notificacao>(chaves.notificacoes, rotas.notificacoes);
 }
 
 export function useResumoNotificacoes() {
