@@ -62,10 +62,13 @@ que um objeto resolve.
 
 ## Cobrança — o que o app mostra quando a assinatura está inadimplente
 
-**Onde:** a definir (Fase 3.7)
+**Onde:** `app/indisponivel.tsx` · `src/nucleo/apresentacao.ts:42-49` (ramo do 402) ·
+`src/nucleo/rotas-do-push.ts` (categoria `BILLING` → `/indisponivel`)
 **Site faz:** mostra o estado da cobrança e leva para a tela de assinatura.
 **App faz:** tela neutra, sem preço, sem plano e sem link — "indisponível no momento, fale
-com o gestor da sua equipe".
+com o gestor da sua equipe". `app/__tests__/indisponivel.test.tsx` varre a tela renderizada
+atrás de preço, plano, pagamento e link externo, para que ninguém a transforme em vitrine
+sem o teste reclamar.
 **Por quê:** a regra 3.1.3(f) da Apple permite o app gratuito companheiro de uma ferramenta
 web paga desde que não haja compra dentro do app **nem chamada para comprar fora**. Um
 paywall no app é a rejeição mais provável. E o funcionário não é quem paga: mostrar cobrança

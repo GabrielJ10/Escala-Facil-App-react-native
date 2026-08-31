@@ -23,6 +23,7 @@
 /** Onde o app pode abrir a partir de uma notificação. */
 export type RotaDoApp =
   | '/minha-escala'
+  | '/escala'
   | '/trocas'
   | '/afastamentos'
   | '/solicitacoes'
@@ -50,17 +51,43 @@ const POR_CAMINHO: Record<string, RotaDoApp> = {
 /**
  * Destino padrão por categoria, quando a notificação não traz caminho.
  *
- * Espelha `NOTIFICATION_CATEGORY_DEFAULT_TARGETS` do site — as categorias vêm do backend e
- * são as mesmas nos dois.
+ * A lista foi conferida contra o que o backend **emite de fato**, e não contra o que o site
+ * mapeia. As duas divergiam: `schedule_alerts` estava aqui e no site, e o backend nunca a
+ * emitiu — entrada morta nos dois. Na direção oposta, as duas categorias de publicação de
+ * escala eram emitidas e não estavam em lugar nenhum.
+ *
+ * Isso importava mais do que parece: "escala publicada" é o aviso mais relevante que um
+ * funcionário recebe, e tocar nele abria a tela inicial em vez da escala, porque o
+ * `metadata` dessas emissões carrega só período e contagem — sem `target_path`, o destino
+ * sai daqui ou não existe.
+ *
+ * As sete categorias emitidas hoje, verificadas no backend:
+ * `shift_swap`, `pending_admin_requests`, `pending_absence_requests`,
+ * `absence_request_result` (request/absence.service.js), `schedule_published` e
+ * `schedule_publish_summary` (shift.service.js:2126,2143,2157) e `BILLING`.
  */
 const POR_CATEGORIA: Record<string, RotaDoApp> = {
   pending_admin_requests: '/solicitacoes',
   pending_absence_requests: '/solicitacoes',
   absence_request_result: '/afastamentos',
   shift_swap: '/trocas',
-  schedule_alerts: '/minha-escala',
+
+  // O funcionário vai para a própria escala; o resumo é do gestor e leva à escala da equipe.
+  schedule_published: '/minha-escala',
+  schedule_publish_summary: '/escala',
+
   BILLING: '/indisponivel',
 };
+
+/**
+ * As categorias que têm destino declarado.
+ *
+ * Exportada porque olhar só o resultado de `rotaDaNotificacao` não distingue "mapeada para
+ * `/minha-escala`" de "não mapeada, caiu no destino inicial" — que por acaso é o mesmo
+ * caminho. Sem esta lista, apagar a entrada de `schedule_published` passaria por qualquer
+ * teste, e foi exatamente o que aconteceu na primeira versão deste arquivo.
+ */
+export const CATEGORIAS_MAPEADAS: readonly string[] = Object.freeze(Object.keys(POR_CATEGORIA));
 
 /** Descarta query string e âncora — o app roteia por caminho. */
 function apenasCaminho(bruto: string): string {

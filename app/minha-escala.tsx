@@ -61,13 +61,7 @@ export default function MinhaEscala() {
       ) : null}
 
       <AtalhosDoGestor />
-
-      <View style={estilos.atalhos}>
-        <Atalho rotulo="Trocas" destino="/trocas" />
-        <Atalho rotulo="Afastamentos" destino="/afastamentos" />
-        <Atalho rotulo="Avisos" destino="/notificacoes" contador={naoLidas} />
-        <Atalho rotulo="Perfil" destino="/perfil" />
-      </View>
+      <AtalhosDoFuncionario naoLidas={naoLidas} />
     </ScrollView>
   );
 }
@@ -93,6 +87,35 @@ function AtalhosDoGestor() {
         {podeAprovar ? <Atalho rotulo="Solicitações" destino="/solicitacoes" /> : null}
       </View>
     </>
+  );
+}
+
+/**
+ * Os atalhos do funcionário — e por que dois deles perguntam antes de aparecer.
+ *
+ * Trocas e Afastamentos eram renderizados incondicionalmente, enquanto toda tela de gestor
+ * já passava por `usePodeVer`. A assimetria tinha consequência concreta: `module_shift_requests`
+ * é `plans: ['PRO']` e ainda depende do recurso `enable_shift_swaps` do tenant
+ * (`system.config.js:328`), então num tenant BASIC o funcionário via o botão "Trocas" e
+ * tomava "Sem acesso" toda vez que tocasse. O site já trava esse item pelo mesmo motivo.
+ *
+ * Avisos e Perfil não perguntam nada porque não há o que perguntar: notificação e dados da
+ * própria conta valem para qualquer plano e qualquer papel.
+ *
+ * Exportado para teste: a decisão de mostrar cada atalho é o que importa aqui, e testá-la
+ * isolada evita montar a tela inteira com as consultas dela.
+ */
+export function AtalhosDoFuncionario({ naoLidas }: { naoLidas?: number }) {
+  const podeTrocar = usePodeVer('module_shift_requests');
+  const podePedirAfastamento = usePodeVer('action_create_absence_request');
+
+  return (
+    <View style={estilos.atalhos}>
+      {podeTrocar ? <Atalho rotulo="Trocas" destino="/trocas" /> : null}
+      {podePedirAfastamento ? <Atalho rotulo="Afastamentos" destino="/afastamentos" /> : null}
+      <Atalho rotulo="Avisos" destino="/notificacoes" contador={naoLidas} />
+      <Atalho rotulo="Perfil" destino="/perfil" />
+    </View>
   );
 }
 
