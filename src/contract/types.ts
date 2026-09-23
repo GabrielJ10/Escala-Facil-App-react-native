@@ -9,8 +9,16 @@ export interface Organization {
   id: string;
   name: string;
   plan: string;
-  billing_status: 'SETUP_PENDING' | 'ACTIVE' | 'INACTIVE' | 'PAST_DUE';
+  billing_status: 'SETUP_PENDING' | 'ACTIVE' | 'TRIALING' | 'INACTIVE' | 'PAST_DUE';
   grace_period_ends_at?: string | null;
+  /**
+   * Quando o acesso acaba — teste grátis ou período contratado que não renova.
+   *
+   * O status NÃO muda sozinho quando a data passa: quem bloqueia é a comparação com este campo,
+   * feita a cada requisição no servidor. Olhar só `billing_status` daria acesso eterno a quem
+   * está em teste.
+   */
+  access_expires_at?: string | null;
   is_setup_ready?: boolean;
   // Whitelist exposta pelo backend em /auth/me (auth.transformer.pickPublicTenantSettings).
   // Nunca inclui settings.billing.
