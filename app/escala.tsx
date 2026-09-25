@@ -5,6 +5,7 @@ import { router } from 'expo-router';
 import { useEscala } from '@/nucleo/consultas';
 import { agruparTurnosPorDia } from '@/nucleo/apresentacao';
 import {
+  ehVagaReservada,
   estaVago,
   hojeNaOrganizacao,
   limitarIntervalo,
@@ -189,6 +190,7 @@ function LinhaDaEscala({ turno, podeEditar }: Readonly<{
   podeEditar: boolean;
 }>) {
   const vaga = estaVago(turno);
+  const reservada = ehVagaReservada(turno);
   const avisos = turno.warnings?.length ?? 0;
 
   const abrir = () => router.push({ pathname: '/turno/[id]', params: { id: turno.id } });
@@ -202,7 +204,7 @@ function LinhaDaEscala({ turno, podeEditar }: Readonly<{
       accessibilityLabel={
         `${formatarHora(turno.start_timestamp)} às ${formatarHora(turno.end_timestamp)}, `
         + `${turno.location?.name ?? 'sem local'}, `
-        + (vaga ? 'vaga em aberto' : `com ${turno.member?.name ?? 'alguém'}`)
+        + (vaga ? (reservada ? 'vaga reservada, sem cargo' : 'vaga em aberto') : `com ${turno.member?.name ?? 'alguém'}`)
         + (avisos > 0 ? `, ${avisos} aviso` : '')
       }
     >
@@ -213,7 +215,7 @@ function LinhaDaEscala({ turno, podeEditar }: Readonly<{
 
       <View style={estilos.linhaCorpo}>
         <Text style={[estilos.pessoa, vaga && estilos.pessoaVaga]} numberOfLines={1}>
-          {vaga ? 'Em aberto' : (turno.member?.name ?? 'Alocado')}
+          {vaga ? (reservada ? 'Reservada' : 'Em aberto') : (turno.member?.name ?? 'Alocado')}
         </Text>
         <Text style={estilos.local} numberOfLines={1}>
           {turno.location?.name ?? '—'}

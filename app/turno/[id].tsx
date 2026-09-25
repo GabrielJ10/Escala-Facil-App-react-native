@@ -19,7 +19,9 @@ import {
   type Membro,
 } from '@/nucleo/consultas';
 import {
+  ehVagaReservada,
   estaVago,
+  rotuloDoCargo,
   hojeNaOrganizacao,
   limitarIntervalo,
   semanaDe,
@@ -95,8 +97,13 @@ function Cabecalho({ turno }: Readonly<{ turno: TurnoDaEscala }>) {
       {turno.shift_model?.name ? (
         <Text style={estilos.modelo}>{turno.shift_model.name}</Text>
       ) : null}
-      {turno.required_role ? (
-        <Text style={estilos.cargo}>Cargo exigido: {turno.required_role}</Text>
+      {rotuloDoCargo(turno.required_role) ? (
+        <Text style={estilos.cargo}>Cargo exigido: {rotuloDoCargo(turno.required_role)}</Text>
+      ) : null}
+      {ehVagaReservada(turno) ? (
+        <Text style={estilos.cargo}>
+          Vaga reservada: o preenchimento automático não a usa. Aloque alguém aqui.
+        </Text>
       ) : null}
 
       {(turno.warnings?.length ?? 0) > 0 ? (

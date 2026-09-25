@@ -14,7 +14,10 @@ import {
   MAXIMO_DE_DIAS,
   corpoDoTurnoAvulso,
   diferencaEmDias,
+  ehAvulso,
+  ehVagaReservada,
   estaVago,
+  rotuloDoCargo,
   hojeNaOrganizacao,
   instanteNaOrganizacao,
   limitarIntervalo,
@@ -203,6 +206,29 @@ describe('vaga e resumo do dia', () => {
   });
 });
 
+describe('vaga reservada e cargo', () => {
+  const base = { id: 't', start_timestamp: '2026-09-01T11:00:00.000Z', end_timestamp: '2026-09-01T19:00:00.000Z' };
+
+  it('reservada = avulso (manual ou IA) sem cargo e sem ninguém; qualquer outra coisa não é', () => {
+    expect(ehVagaReservada({ ...base, origin: 'ADHOC_MANUAL', required_role: null })).toBe(true);
+    expect(ehVagaReservada({ ...base, origin: 'ADHOC_AI', required_role: '' })).toBe(true);
+    expect(ehVagaReservada({ ...base, origin: 'ADHOC_MANUAL', required_role: 'ANY' })).toBe(false);
+    expect(ehVagaReservada({ ...base, origin: 'ADHOC_MANUAL', required_role: null, member: { id: 'm' } })).toBe(false);
+    expect(ehVagaReservada({ ...base, origin: 'AUTOFILL', required_role: null })).toBe(false);
+    expect(ehVagaReservada({ ...base, required_role: null })).toBe(false);
+    expect(ehAvulso({ ...base, origin: 'ADHOC_AI' })).toBe(true);
+    expect(ehAvulso({ ...base })).toBe(false);
+  });
+
+  it('ANY vira "Qualquer cargo"; vazio não tem rótulo; cargo real vai como veio', () => {
+    expect(rotuloDoCargo('ANY')).toBe('Qualquer cargo');
+    expect(rotuloDoCargo('any')).toBe('Qualquer cargo');
+    expect(rotuloDoCargo('')).toBeNull();
+    expect(rotuloDoCargo(null)).toBeNull();
+    expect(rotuloDoCargo('Enfermeiro')).toBe('Enfermeiro');
+  });
+});
+
 describe('turno avulso', () => {
   const valido = {
     dia: '2026-09-01',
@@ -229,7 +255,18 @@ describe('turno avulso', () => {
       shift_model_id: valido.modeloId,
       start_timestamp: '2026-09-01T11:00:00.000Z',
       end_timestamp: '2026-09-01T19:00:00.000Z',
+      required_role: 'ANY',
     });
+  });
+
+  /**
+   * Com o turno avulso da grade ligado no servidor, avulso SEM cargo e sem pessoa é "vaga
+   * reservada" e o preenchimento automático o ignora. A vaga do app sempre foi "qualquer
+   * pessoa" — por isso o `ANY` vai explícito, com ou sem a flag no servidor.
+   */
+  it('a vaga do app é "qualquer pessoa": required_role ANY vai sempre, nunca vazio', () => {
+    expect(corpoDoTurnoAvulso(valido, SP)!.required_role).toBe('ANY');
+    expect(corpoDoTurnoAvulso(valido, SP, '33333333-3333-4333-8333-333333333333')!.required_role).toBe('ANY');
   });
 
   /**

@@ -205,6 +205,10 @@ export interface Shift {
   start_timestamp: string;
   end_timestamp: string;
   status: string;
+  /** De onde o turno veio: regra, avulso à mão (ADHOC_MANUAL), avulso pela IA (ADHOC_AI)… */
+  origin?: string | null;
+  // O 201 de `POST /shifts` (sem joins) traz `member_id` em vez de `member`.
+  member_id?: string | null;
   is_locked_by_admin: boolean;
   warnings: (ShiftWarning | string)[];
   required_role?: string | null;

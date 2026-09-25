@@ -160,12 +160,36 @@ export type TurnoDaEscala = {
   location?: { id?: string | null; name?: string | null } | null;
   shift_model?: { id?: string | null; name?: string | null } | null;
   required_role?: string | null;
+  origin?: string | null;
   warnings?: Array<{ code?: string; severity?: string }> | null;
 };
 
 /** Um turno sem ninguém é uma VAGA — o que o gestor está procurando na tela. */
 export function estaVago(turno: TurnoDaEscala): boolean {
   return !turno?.member?.id && !turno?.member_id;
+}
+
+/** Turno criado à mão (app, grade do site) ou pela IA, sem regra por trás. */
+const ORIGENS_AVULSAS = new Set(['ADHOC_MANUAL', 'ADHOC_AI']);
+
+export function ehAvulso(turno: TurnoDaEscala): boolean {
+  return ORIGENS_AVULSAS.has(String(turno?.origin ?? ''));
+}
+
+/**
+ * Vaga RESERVADA: avulso sem cargo e sem ninguém. O gestor guardou o espaço na grade do
+ * site e ainda não disse quem cabe nele — o preenchimento automático não a usa; alguém tem
+ * que ser alocado à mão (aqui mesmo, na tela do turno). O app nunca cria uma: manda `ANY`.
+ */
+export function ehVagaReservada(turno: TurnoDaEscala): boolean {
+  return ehAvulso(turno) && estaVago(turno) && String(turno?.required_role ?? '').trim() === '';
+}
+
+/** `ANY` é "qualquer cargo"; vazio não é cargo nenhum; o resto vai como veio. */
+export function rotuloDoCargo(cargo: string | null | undefined): string | null {
+  const limpo = String(cargo ?? '').trim();
+  if (!limpo) return null;
+  return limpo.toUpperCase() === 'ANY' ? 'Qualquer cargo' : limpo;
 }
 
 export type ResumoDoDia = {
@@ -230,6 +254,10 @@ export function validarTurnoAvulso(rascunho: RascunhoDeAvulso): string[] {
  *
  * O schema é `.strict()`: um campo a mais e a requisição inteira é recusada. Por isso
  * `member_id` só entra quando existe, em vez de ir como `null`.
+ *
+ * `required_role: 'ANY'` vai sempre: a vaga do app é "qualquer pessoa", e é assim que o
+ * preenchimento automático a trata. Sem o campo, com o turno avulso da grade ligado no
+ * servidor, a vaga nasceria RESERVADA (o automático a ignoraria) sem o gestor saber.
  */
 export function corpoDoTurnoAvulso(
   rascunho: RascunhoDeAvulso,
@@ -240,6 +268,7 @@ export function corpoDoTurnoAvulso(
   shift_model_id: string;
   start_timestamp: string;
   end_timestamp: string;
+  required_role: 'ANY';
   member_id?: string;
 } | null {
   if (validarTurnoAvulso(rascunho).length > 0) return null;
@@ -254,6 +283,7 @@ export function corpoDoTurnoAvulso(
     shift_model_id: rascunho.modeloId as string,
     start_timestamp: inicio.toISOString(),
     end_timestamp: fim.toISOString(),
+    required_role: 'ANY' as const,
   };
 
   return membroId ? { ...corpo, member_id: membroId } : corpo;

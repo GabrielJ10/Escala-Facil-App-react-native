@@ -379,6 +379,13 @@ Sobre o **horário**, deixar o gestor digitar hora e duração livres criaria tu
 batem com modelo nenhum — e a escala inteira do produto é montada sobre modelos. Escolher o
 modelo É escolher o horário.
 
+Sobre o **cargo** (2026-09-24): o app manda `required_role: 'ANY'` sempre. No site, a caixinha
+avulsa da grade tem cargo opcional, e "sem cargo e sem pessoa" é **vaga reservada** — o
+preenchimento automático a ignora (semântica atrás de `SHIFT_ADHOC_ENABLED` no servidor). A vaga
+do app sempre foi "qualquer pessoa"; o `ANY` explícito mantém isso com ou sem a flag. A lista da
+escala rotula a reservada vinda do site como "Reservada", e o detalhe explica que ela só é
+preenchida à mão. Escolher um cargo específico no app fica para depois (o site já faz).
+
 O instante é construído com `instanteNaOrganizacao`, no fuso da organização. O caminho
 ingênuo (`new Date('2026-09-01T08:00')`) usaria o fuso do APARELHO: um gestor viajando criaria
 turnos horas fora do que viu na tela, e a diferença só apareceria para quem fosse trabalhar.
