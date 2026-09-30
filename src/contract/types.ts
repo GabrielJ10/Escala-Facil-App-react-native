@@ -5,11 +5,31 @@ export interface User {
   paywall_showcase?: string[];
 }
 
+/**
+ * Uma mudança de assinatura que ainda vai acontecer, gravada pelo backend:
+ * cancelamento agendado ("válido até"), downgrade na virada do ciclo, upgrade cobrado e
+ * ainda não aplicado.
+ */
+export interface PendingPlanChange {
+  // `(string & {})` mantém o autocomplete e o narrowing dos três valores conhecidos, sem
+  // recusar um tipo novo que o backend passe a gravar.
+  type: 'cancel_scheduled' | 'canceled' | 'down' | 'up' | (string & {});
+  target_plan?: string | null;
+  mode?: string | null;
+  effective_at?: string | null;
+  /** Verdadeiro quando o estorno do cancelamento ficou para o suporte processar. */
+  refund_pending?: boolean;
+}
+
 export interface Organization {
   id: string;
   name: string;
   plan: string;
   billing_status: 'SETUP_PENDING' | 'ACTIVE' | 'TRIALING' | 'INACTIVE' | 'PAST_DUE';
+  /** Quem cobra esta organização. Decide qual gestão de assinatura a tela mostra. */
+  billing_provider?: 'asaas' | 'stripe' | null;
+  has_asaas_subscription?: boolean;
+  pending_plan_change?: PendingPlanChange | null;
   grace_period_ends_at?: string | null;
   /**
    * Quando o acesso acaba — teste grátis ou período contratado que não renova.
