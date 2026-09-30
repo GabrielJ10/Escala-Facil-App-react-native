@@ -720,14 +720,24 @@ export function useMarcarTodasLidas() {
  * isso as duas listas são invalidadas depois — sem isso, a notificação continuaria em negrito
  * no app enquanto o servidor já a considera lida.
  */
+/**
+ * O id sozinho é o toque na lista do app; `{ id, origem: 'push' }` é o toque na notificação do
+ * sistema. A origem vai separada para o founder medir quanto o push traz de volta.
+ */
+export type CliqueEmNotificacao = string | { id: string; origem: 'push' };
+
 export function opcoesRegistrarClique(
   cliente: QueryClient,
-): UseMutationOptions<unknown, ErroApi, string> {
+): UseMutationOptions<unknown, ErroApi, CliqueEmNotificacao> {
   return {
-    mutationFn: (id) => apiFetch(rotas.registrarClique(id), {
-      method: 'POST',
-      body: JSON.stringify({ source: 'app' }),
-    }),
+    mutationFn: (clique) => {
+      const id = typeof clique === 'string' ? clique : clique.id;
+      const source = typeof clique === 'string' ? 'app' : 'app_push';
+      return apiFetch(rotas.registrarClique(id), {
+        method: 'POST',
+        body: JSON.stringify({ source }),
+      });
+    },
     onSettled: () => {
       cliente.invalidateQueries({ queryKey: chaves.notificacoes });
       cliente.invalidateQueries({ queryKey: chaves.resumoNotificacoes });

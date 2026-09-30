@@ -288,6 +288,18 @@ describe('registrar clique', () => {
       expect.objectContaining({ body: JSON.stringify({ source: 'app' }) }),
     );
   });
+
+  it('toque na notificação do sistema vai como app_push, separado do toque na lista', async () => {
+    const cliente = novoCliente();
+    apiFetch.mockResolvedValue({ success: true });
+
+    await mutar(cliente, opcoesRegistrarClique(cliente), { id: 'n1', origem: 'push' });
+
+    expect(apiFetch).toHaveBeenCalledWith(
+      '/notifications/n1/click',
+      expect.objectContaining({ body: JSON.stringify({ source: 'app_push' }) }),
+    );
+  });
 });
 
 describe('pedir afastamento', () => {

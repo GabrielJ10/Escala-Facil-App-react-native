@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import * as Notifications from 'expo-notifications';
 import { router } from 'expo-router';
 
+import { useRegistrarClique } from './consultas';
 import { rotaDaNotificacao, ehDestinoDeCobranca, type NotificacaoParaRota } from './rotas-do-push';
 import { useSessao } from './sessao';
 
@@ -29,10 +30,22 @@ export function useNavegacaoPorPush() {
   // "puxando" a pessoa para uma tela que ela acabou de deixar.
   const jaTratouAberturaAFrio = useRef(false);
 
+  // O toque também conta como clique, como na lista de notificações: sem isto o push não
+  // aparecia em nenhuma métrica de engajamento. Uma vez por notificação nesta execução do app.
+  // `mutate` do TanStack Query é estável entre renders: não reexecuta o efeito.
+  const { mutate: registrarClique } = useRegistrarClique();
+  const cliquesRegistrados = useRef(new Set<string>());
+
   useEffect(() => {
     if (carregando || !autenticado) return undefined;
 
     const navegar = (conteudo: NotificacaoParaRota) => {
+      const id = conteudo.data?.notification_id;
+      if (typeof id === 'string' && id && !cliquesRegistrados.current.has(id)) {
+        cliquesRegistrados.current.add(id);
+        registrarClique({ id, origem: 'push' });
+      }
+
       const rota = rotaDaNotificacao(conteudo);
 
       // Cobrança não interrompe quem está com o acesso funcionando. Se a sessão está viva, o
@@ -66,5 +79,5 @@ export function useNavegacaoPorPush() {
     });
 
     return () => inscricao.remove();
-  }, [carregando, autenticado]);
+  }, [carregando, autenticado, registrarClique]);
 }
